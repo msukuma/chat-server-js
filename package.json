@@ -1,0 +1,28 @@
+{
+  "name": "chat-tcp-server",
+  "version": "0.1.0",
+  "description": "TCP chat server",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/msukuma/chat-tcp-server.git"
+  },
+  "keywords": [
+    "chat",
+    "server",
+    "tcp"
+  ],
+  "author": "Itenga",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/msukuma/chat-tcp-server/issues"
+  },
+  "homepage": "https://github.com/msukuma/chat-tcp-server#readme",
+  "dependencies": {
+    "winston": "^3.0.0-rc1"
+  }
+}
