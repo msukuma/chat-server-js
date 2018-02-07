@@ -1,3 +1,9 @@
+const {
+  ERROR,
+  TIMEOUT,
+  END,
+  DATA,
+  CONNECTION, } = require('./constants');
 const { inherit } = require('./util');
 const Logger = require('./logger');
 const ConnectionManager = require('./connections');
@@ -22,7 +28,7 @@ class ChatServer {
   }
 
   _onConnection() {
-    this.on('connection', (socket) => {
+    this.on(CONNECTION, (socket) => {
       this.connections.add(socket);
       this._configureSocket(socket);
     });
@@ -31,27 +37,27 @@ class ChatServer {
   _configureSocket(socket) {
     socket.setTimeout(180000);
 
-    socket.on('timeout', () => {
-      event = { type: 'timeout', socket: socket.id };
+    socket.on(TIMEOUT, () => {
+      event = { type: TIMEOUT, socket: socket.id };
       this.log(JSON.stringify(event));
 
       this.sessions.end(socket);
       this.connections.end(socket);
     });
 
-    socket.on('data', (chunk) => {
+    socket.on(DATA, (chunk) => {
       const data = chunk.toString();
       this.medium.broadcast(socket, data);
     });
 
-    socket.on('error', err => this.log.error(err.message));
-    socket.on('end', () => {
+    socket.on(ERROR, err => this.log.error(err.message));
+    socket.on(END, () => {
       this.killSession(socket);
     });
   }
 
   _onError() {
-    this.on('error', err => this.log.error(err.message));
+    this.on(ERROR, err => this.log.error(err.message));
   }
 }
 

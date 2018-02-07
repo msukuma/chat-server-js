@@ -1,4 +1,8 @@
-const { messageTypes } = require('./constants');
+const {
+  MESSAGE,
+  INFO,
+  WARNING,
+  ERROR, } = require('./constants');
 
 class Medium {
   constructor(server, options = {}) {
@@ -19,7 +23,7 @@ class Medium {
 
   broadcast({ socket, content, time }) {
     let data = {
-      type: messageTypes.message,
+      type: MESSAGE,
       from: socket.userId,
       content: content,
       time: time,
@@ -32,21 +36,21 @@ class Medium {
 
   info({ socket, content }) {
     this._serverMessage(socket, {
-      type: messageTypes.ifo,
+      type: INFO,
       content: content,
     });
   }
 
   warn({ socket, content }) {
     this._serverMessage(socket, {
-      type: messageTypes.warning,
+      type: WARNING,
       content: content,
     });
   }
 
   error({ socket, content }) {
     this._serverMessage(socket, {
-      type: messageTypes.error,
+      type: ERROR,
       content: content,
     });
   }
