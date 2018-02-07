@@ -13,19 +13,19 @@ class Medium {
     socket.write(JSON.stringify(dataObj));
   }
 
-  _serverMessage(socket, { type, content }) {
+  _serverMessage(socket, { type, message }) {
     this._write(socket, {
       type: type,
-      content: content,
+      message: message,
       time: new Date().toISOString(),
     });
   }
 
-  broadcast({ socket, content, time }) {
+  broadcast({ socket, message, time }) {
     let data = {
       type: MESSAGE,
       from: socket.userId,
-      content: content,
+      message: message,
       time: time,
     };
 
@@ -34,24 +34,24 @@ class Medium {
     });
   }
 
-  info({ socket, content }) {
+  info({ socket, message }) {
     this._serverMessage(socket, {
       type: INFO,
-      content: content,
+      message: message,
     });
   }
 
-  warn({ socket, content }) {
+  warn({ socket, message }) {
     this._serverMessage(socket, {
       type: WARNING,
-      content: content,
+      message: message,
     });
   }
 
-  error({ socket, content }) {
+  error({ socket, message }) {
     this._serverMessage(socket, {
       type: ERROR,
-      content: content,
+      message: message,
     });
   }
 }
