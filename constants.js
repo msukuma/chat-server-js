@@ -7,4 +7,5 @@ exports = {
   END: 'end',
   DATA: 'data',
   CONNECTION: 'connection',
+  SESSION: 'session',
 };
