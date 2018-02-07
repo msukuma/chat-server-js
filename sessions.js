@@ -20,6 +20,10 @@ class SessionManager {
   endAll() {
     this.sessions.clear();
   }
+
+  forEach(fn) {
+    this.sessions.forEach(fn);
+  }
 };
 
 module.exports = SessionManager;

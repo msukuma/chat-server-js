@@ -18,5 +18,9 @@ class ConnectionManager {
     this.connections.forEach(c => socket.destroy());
     this.connections.clear();
   }
+
+  forEach(fn) {
+    this.connections.forEach(fn);
+  }
 }
 module.exports = ConnectionManager;
