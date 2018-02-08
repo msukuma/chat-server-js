@@ -1,6 +1,6 @@
 const { ADD, END } =  require('./constants');
 
-class SessionsManager {
+class Sessions {
   constructor(logger) {
     this.log = logger;
     this.numSessions = 0;
@@ -41,4 +41,4 @@ class SessionsManager {
   }
 };
 
-module.exports = SessionsManager;
+module.exports = Sessions;

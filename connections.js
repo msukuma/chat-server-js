@@ -1,6 +1,6 @@
 const { ADD, END } =  require('./constants');
 
-class ConnectionsManager {
+class Connections {
   constructor(logger, options = {}) {
     this.log = logger;
     this._tmp_id = 0;
@@ -36,4 +36,4 @@ class ConnectionsManager {
     this.connections.forEach(fn);
   }
 }
-module.exports = ConnectionsManager;
+module.exports = Connections;

@@ -3,12 +3,12 @@ const {
   WARNING,
   INFO,
   MESSAGE,
-  CONFIRMATION,
+  STATUS,
   MESSAGE_KEYS, } = require('./constants');
 const { isoTimeStamp } = require('./util');
 const assert = require('assert');
 
-class MessagesManager {
+class Messages {
   constructor(server, options = {}) {
     this._server = server;
     this._log = server.log;
@@ -49,24 +49,29 @@ class MessagesManager {
     this._server.sessions.forEach((toSkt, userId) => {
       if (fromSkt.id !== toSkt.id) {
         data.to = toSkt.userId;
-
-        // this._write(toSkt, data);
-        this.deliver(fromSkt, toSkt, data);
+        this.deliver(fromSkt, toSkt, data)
+            .then(this.confirmDelivery(fromSkt, message));
       }
     });
   }
 
   receive(socket, message) {
-    return this._serverMessage(socket, CONFIRMATION, 'received');
+    message.id = isoTimeStamp();
+    let msg = {
+      status: 'received',
+      messageId: message.id, };
+    return this._serverMessage(socket, STATUS, msg);
   }
 
-  deliver(fromSkt, toSkt, message) {
-    return this._serverMessage(toSkt, MESSAGE, message)
-                .then(this.confirmDelivery(fromSkt, message));
+  deliver(toSkt, message) {
+    return this._serverMessage(toSkt, MESSAGE, message);
   }
 
   confirmDelivery(fromSkt, message) {
-    return this._serverMessage(fromSkt, CONFIRMATION, 'delivered');
+    let msg = {
+      status: 'delivered',
+      messageId: message.id, };
+    return this._serverMessage(fromSkt, STATUS, msg);
   }
 
   info(socket, message) {
@@ -85,4 +90,4 @@ class MessagesManager {
   }
 }
 
-module.exports = MessagesManager;
+module.exports = Messages;

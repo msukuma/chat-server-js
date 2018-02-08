@@ -8,7 +8,7 @@ const constants = {
   SESSION: 'session',
   WARNING: 'warning',
   MESSAGE: 'message',
-  CONFIRMATION: 'confirmation',
+  STATUS: 'status',
   INFO: 'info',
   ADD: 'add',
   END: 'end',
