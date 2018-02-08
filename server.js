@@ -10,9 +10,9 @@ const {
   SESSION, } = require('./constants');
 const { inherit } = require('./util');
 const Logger = require('./logger');
-const ConnectionsManager = require('./connections');
-const SessionsManager = require('./sessions');
-const MessagesManager = require('./messages');
+const Connections = require('./connections');
+const Sessions = require('./sessions');
+const Messages = require('./messages');
 const net = require('net');
 
 class ChatServer {
@@ -20,9 +20,9 @@ class ChatServer {
     inherit(this, net.createServer(cl, options));
     this.id = options.id || Date.now();
     this.log = Logger();
-    this.connections = new ConnectionsManager(this.log);
-    this.sessions = new SessionsManager(this.log);
-    this.messages = new MessagesManager(this);
+    this.connections = new Connections(this.log);
+    this.sessions = new Sessions(this.log);
+    this.messages = new Messages(this);
 
     this._init();
   }
@@ -62,17 +62,14 @@ class ChatServer {
     socket.on(DATA, (chunk) => {
       const data = JSON.parse(chunk.toString());
 
-      if (data.type === SESSION) {
-        this.sessions.add(socket, data.userId);
-      } else if (data.type === MESSAGE) {
-        if (this.messages.valid(data)) {
-          this.messages.receive(socket, data)
-                        .then(this.messages.broadcast(socket, data));
-        } else {
-          this.messages.error(socket, 'InvalidFormat');
-        }
+      switch (data.type) {
+        case SESSION:
+          this._handleSession(socket, data);
+          break;
+        case MESSAGE:
+          this._handleMessage(socket, data);
+          break;
       }
-
     });
 
     socket.on(ERROR, err => {
@@ -87,6 +84,20 @@ class ChatServer {
       this.sessions.end(socket);
       this.connections.end(socket);
     });
+  }
+
+  _handleSession(socket, data) {
+    this.sessions.add(socket, data.userId);
+  }
+
+  _handleMessage(socket, message) {
+    if (this.messages.valid(message)) {
+      this.messages
+          .receive(socket, message)
+          .then(this.messages.broadcast(socket, message));
+    } else {
+      this.messages.error(socket, 'InvalidFormat');
+    }
   }
 
   _onError() {

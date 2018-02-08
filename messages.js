@@ -45,18 +45,19 @@ class Messages {
     }
   }
 
-  broadcast(fromSkt, data) {
+  broadcast(fromSkt, message) {
     this._server.sessions.forEach((toSkt, userId) => {
       if (fromSkt.id !== toSkt.id) {
-        data.to = toSkt.userId;
-        this.deliver(fromSkt, toSkt, data)
+        message.to = toSkt.userId;
+
+        this.deliver(toSkt, message)
             .then(this.confirmDelivery(fromSkt, message));
       }
     });
   }
 
   receive(socket, message) {
-    message.id = isoTimeStamp();
+    message.id = Date.now();
     let msg = {
       status: 'received',
       messageId: message.id, };

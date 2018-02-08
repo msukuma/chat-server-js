@@ -28,7 +28,7 @@ class Connections {
   }
 
   endAll() {
-    this.connections.forEach(socket => socket.destroy());
+    this.connections.forEach(this.end);
     this.connections.clear();
   }
 
@@ -36,4 +36,5 @@ class Connections {
     this.connections.forEach(fn);
   }
 }
+
 module.exports = Connections;
