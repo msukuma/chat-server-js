@@ -66,7 +66,8 @@ class ChatServer {
         this.sessions.add(socket, data.userId);
       } else if (data.type === MESSAGE) {
         if (this.messages.valid(data)) {
-          this.messages.broadcast(socket, data);
+          this.messages.receive(socket, data)
+                        .then(this.messages.broadcast(socket, data));
         } else {
           this.messages.error(socket, 'InvalidFormat');
         }
