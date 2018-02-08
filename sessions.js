@@ -1,7 +1,19 @@
-class SessionManager {
-  constructor(server) {
+const { ADD, END } =  require('./constants');
+
+class SessionsManager {
+  constructor(logger) {
+    this.log = logger;
     this.numSessions = 0;
     this.sessions = new Map();
+  }
+
+  _log(socket, type) {
+    this.log.session({
+      type: type,
+      userId: socket.userId,
+      socketId: socket.id,
+      address: socket.address(),
+    });
   }
 
   exists(socket) {
@@ -9,12 +21,15 @@ class SessionManager {
     return this.sessions.has(id);
   }
 
-  start(socket) {
-    this.sessions.set(socket.userId, socket);
+  add(socket, userId) {
+    socket.userId = userId;
+    this.sessions.set(userId, socket);
+    this._log(socket, ADD);
   }
 
   end(socket) {
-    this.session.delete(socket.userId);
+    this.sessions.delete(socket.userId);
+    this._log(socket, END);
   }
 
   endAll() {
@@ -26,4 +41,4 @@ class SessionManager {
   }
 };
 
-module.exports = SessionManager;
+module.exports = SessionsManager;
