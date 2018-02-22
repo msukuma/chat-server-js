@@ -17,7 +17,7 @@ class Sessions {
   }
 
   exists(socket) {
-    const id = typeof socket == 'string' ? socket : socket.id;
+    const id = typeof socket == 'string' ? socket : socket.userId;
     return this.sessions.has(id);
   }
 
