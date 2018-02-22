@@ -12,6 +12,22 @@ const constants = {
   INFO: 'info',
   ADD: 'add',
   END: 'end',
+  GET: 'GET',
+  HANDSHAKE: 'handshake',
+  BAD_REQUEST: 'Bad Request',
+  BAD_HANDSHAKE_RESPONSE: 'HTTP/1.1 400 Bad Request\r\n',
+  GOOD_HANDSHAKE_RESPONSE_PREFIX: 'HTTP/1.1 101 Switching Protocols\r\n' +
+   'Upgrade: websocket\r\n' +
+   'Connection: Upgrade\r\n' +
+   'Sec-WebSocket-Protocol: chat\r\n' +
+   'Sec-WebSocket-Accept: ',
+  GOOD_HANDSHAKE_RESPONSE_SUFFIX: '\r\n\r\n',
+  HTTP_VERSION_REGEX: /HTTP\/\d/,
+  UPGRADE: 'Upgrade',
+  WEBSOCKET: 'websocket',
+  SEC_WS_KEY: 'Sec-WebSocket-Key',
+  SEC_WS_VERSION: 'Sec-WebSocket-Version',
+  GUID: '258EAFA5-E914-47DA-95CA-C5AB0DC85B11',
   HOST: 'localhost',
   PORT: 56150,
 };
