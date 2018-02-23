@@ -1,3 +1,3 @@
-Chat TCP Server
-================
-TCP server for chat app
+# Chat Server
+
+TCP server that implements The WebSocket Protocol for my chat app

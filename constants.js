@@ -14,6 +14,7 @@ const constants = {
   END: 'end',
   GET: 'GET',
   HANDSHAKE: 'handshake',
+  HANDSHAKE_REGEX: /^GET/,
   BAD_REQUEST: 'Bad Request',
   BAD_HANDSHAKE_RESPONSE: 'HTTP/1.1 400 Bad Request\r\n',
   GOOD_HANDSHAKE_RESPONSE_PREFIX: 'HTTP/1.1 101 Switching Protocols\r\n' +

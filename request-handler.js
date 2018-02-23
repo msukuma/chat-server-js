@@ -3,9 +3,11 @@ const {
   HANDSHAKE,
   GET,
   HTTP_VERSION_REGEX,
+  HANDSHAKE_REGEX,
   UPGRADE,
   WEBSOCKET, } = require('./constants');
 const Request = require('./request');
+const httpHeaders = require('http-headers');
 
 class RequestHandler {
   constructor(server, options = {}) {
@@ -14,16 +16,16 @@ class RequestHandler {
   }
 
   handle(socket) {
+
     socket.on(DATA, (data) => {
       let req;
-      let strData = data.toString();
+      let strData = data.toString().trim();
 
       if (this._isHandShake(strData)) {
         req = new Request(socket);
         this.requests.set(socket, req);
 
-        req.rawHeaders = strData;
-        req.headers = this._parseHeader(strData);
+        req.headers = httpHeaders(strData);
         this._server.emit(HANDSHAKE, req);
 
       } else {
@@ -35,27 +37,7 @@ class RequestHandler {
   }
 
   _isHandShake(str) {
-    return /^\s*GET/.test(str);
-  }
-
-  _parseHeader(rawHeaders) {
-    const headers = {};
-    const tmp = rawHeaders.trim().split('\r\n');
-    this._parseRequestLine(tmp.shift(), headers);
-
-    tmp.map(ln => ln.split(': '))
-        .forEach(([key, val]) => {
-          headers[key.trim()] = val.trim();
-        });
-
-    return headers;
-  }
-
-  _parseRequestLine(line, headers) {
-    let _line = line.split(' ');
-    headers.method = _line[0];
-    headers.url = _line[1];
-    headers.httpVersion = _line[2];
+    return HANDSHAKE_REGEX.test(str);
   }
 
   _decodeMessage(buf) {
@@ -76,7 +58,7 @@ class RequestHandler {
       decoded[i] = encoded[i] ^ maskingKey[i % 4];
     }
 
-    decoded.toString('utf8');
+    return decoded.toString('utf8');
   }
 
   _isGet(req) {
@@ -84,9 +66,8 @@ class RequestHandler {
   }
 
   _isNewerVersion(req) {
-    return req.httpVersion &&
-           HTTP_VERSION_REGEX.test(req.headers.httpVersion) &&
-           parseInt(req.version.split('/')[1]) >= 1.1;
+    console.log(req.httpVersion);
+    return req.httpVersion >= 1.1;
   }
 
   _isHostSet(req) {
@@ -95,8 +76,7 @@ class RequestHandler {
   }
 
   _isWSUpgradeReq(req) {
-    console.log(req.connection == UPGRADE && req.upgrade == WEBSOCKET);
-    return req.connection == UPGRADE &&
+    return req.connection.indexOf(UPGRADE) !== -1 &&
            req.upgrade == WEBSOCKET;
   }
 
