@@ -4,6 +4,7 @@ const {
   TIMEOUT,
   END,
   DATA,
+  GET,
   CONNECTION,
   LISTENING,
   CLOSE,
@@ -20,6 +21,7 @@ const Logger = require('./logger');
 const Connections = require('./connections');
 const Sessions = require('./sessions');
 const Messages = require('./messages');
+const httpHeaders = require('http-headers');
 const RequestHandler = require('./request-handler');
 const net = require('net');
 const crypto = require('crypto');
@@ -70,12 +72,11 @@ class ChatServer {
         this.log.error({
           source: 'socket',
           socketId: socket.id,
-          content: err.stack,
+          content: err.message,
         });
       });
 
       socket.on(END, () => {
-        console.log('ending');
         this._endConnection(socket);
       });
     });
@@ -114,18 +115,20 @@ class ChatServer {
 
   _onHandShake() {
     this.on(HANDSHAKE, (err, req) => {
-      if (err) {
-        this._badRequest(req.socket, err);
-      } else {
-        this._acceptConnection(req);
-      }
+      if (err)
+        return this._badRequest(req.socket, err);
+
+      this._acceptConnection(req);
     });
   }
 
   _onMessage() {
-    this.on(MESSAGE, (socket, message) => {
-      this.messages.receive(socket, message);
-      this.messages.broadcast(socket, message);
+    this.on(MESSAGE, (err, req) => {
+      if (err)
+        return this.messages.error(req.socket, err.message);
+
+      this.messages.receive(req.socket, req.message);
+      this.messages.broadcast(req.socket, req.message);
     });
   }
 
@@ -152,11 +155,11 @@ class ChatServer {
     req.socket.write(resp, () => this.connections.add(req.socket));
   }
 
-  _acceptHash(request) {
+  _acceptHash(req) {
     // move this to connections?
     return crypto
       .createHash('sha1')
-      .update(request.secWSKey + GUID)
+      .update(req.secWSKey + GUID)
       .digest('base64');
   }
 

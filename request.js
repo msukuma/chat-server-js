@@ -37,9 +37,9 @@ class Request {
     return this.headers.upgrade;
   }
 
-  get payload() {
+  get message() {
     if (!this._payload) {
-      return null; // TODO
+      this._payload = JSON.parse(this.buffer.toString());
     }
 
     return this._payload;

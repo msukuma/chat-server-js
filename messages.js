@@ -60,7 +60,8 @@ class Messages {
     message.id = Date.now();
     let msg = {
       status: 'received',
-      messageId: message.id, };
+      content: message,
+    };
     return this._serverMessage(socket, STATUS, msg);
   }
 
