@@ -4,7 +4,7 @@ class Connections {
   constructor(logger, options = {}) {
     this.log = logger;
     this._tmp_id = 0;
-    this.connections = new Set();
+    this._connections = new Set();
   }
 
   _log(socket, type) {
@@ -17,23 +17,27 @@ class Connections {
 
   add(socket) {
     socket.id = this._tmp_id++;
-    this.connections.add(socket);
+    this._connections.add(socket);
     this._log(socket, ADD);
   }
 
+  has(socket) {
+    return this._connections.has(socket);
+  }
+
   end(socket) {
-    this.connections.delete(socket);
+    this._connections.delete(socket);
     socket.destroy();
     this._log(socket, END);
   }
 
   endAll() {
-    this.connections.forEach(this.end);
-    this.connections.clear();
+    this._connections.forEach(this.end);
+    this._connections.clear();
   }
 
   forEach(fn) {
-    this.connections.forEach(fn);
+    this._connections.forEach(fn);
   }
 }
 

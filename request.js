@@ -6,26 +6,19 @@ const EventEmitter = require('events');
 class Request {
   constructor(socket) {
     this.socket = socket;
+
     this._payload = null;
     this._chunks = [];
     this._buffer = null;
+
     this.headers = {};
+    this.method = null;
+    this.url = null;
+    this.httpVersion = null;
   }
 
   get host() {
-    return this.headers.Host;
-  }
-
-  get httpVersion() {
-    return parseInt(`${this.headers.version.major}.${this.headers.version.minor || 0}`);
-  }
-
-  get method() {
-    return this.headers.method;
-  }
-
-  get url() {
-    return this.headers.url;
+    return this.headers.host;
   }
 
   get secWSKey() {
@@ -46,7 +39,7 @@ class Request {
 
   get payload() {
     if (!this._payload) {
-      // this._payload = Buffer.concat(this._chunks);
+      return null; // TODO
     }
 
     return this._payload;

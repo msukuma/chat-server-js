@@ -62,9 +62,7 @@ class ChatServer {
       socket.setTimeout(180000);
 
       socket.on(TIMEOUT, () => {
-        this.log.timeout({
-          socketId: socket.id,
-        });
+        this.log.timeout({ socketId: socket.id });
         this._endConnection(socket);
       });
 
@@ -76,7 +74,10 @@ class ChatServer {
         });
       });
 
-      socket.on(END, () => this._endConnection(socket));
+      socket.on(END, () => {
+        console.log('ending');
+        this._endConnection(socket);
+      });
     });
   }
 
@@ -112,11 +113,11 @@ class ChatServer {
   }
 
   _onHandShake() {
-    this.on(HANDSHAKE, req => {
-      if (this.requestHandler.hasValidHeaders(req)) {
-        this._acceptConnection(req);
+    this.on(HANDSHAKE, (err, req) => {
+      if (err) {
+        this._badRequest(req.socket, err);
       } else {
-        this._badRequest(req.socket);
+        this._acceptConnection(req);
       }
     });
   }
@@ -128,7 +129,7 @@ class ChatServer {
     });
   }
 
-  _badRequest(socket) {
+  _badRequest(socket, err) {
     // move this to connections?
     socket.write(BAD_HANDSHAKE_RESPONSE);
 
@@ -136,6 +137,7 @@ class ChatServer {
       type: BAD_REQUEST,
       socketId: socket.id,
       address: socket.address(),
+      error: err.message,
     });
 
     this._endConnection(socket);
@@ -143,13 +145,11 @@ class ChatServer {
 
   _acceptConnection(req) {
     // move this to connections?
-    req.socket.write(
-      GOOD_HANDSHAKE_RESPONSE_PREFIX +
-      this._acceptHash(req) +
-      GOOD_HANDSHAKE_RESPONSE_SUFFIX
-    );
+    const resp = GOOD_HANDSHAKE_RESPONSE_PREFIX +
+    this._acceptHash(req) +
+    GOOD_HANDSHAKE_RESPONSE_SUFFIX;
 
-    this.connections.add(req.socket);
+    req.socket.write(resp, () => this.connections.add(req.socket));
   }
 
   _acceptHash(request) {
