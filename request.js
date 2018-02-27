@@ -7,7 +7,7 @@ class Request {
   constructor(socket) {
     this.socket = socket;
 
-    this._payload = null;
+    this._body = null;
     this._chunks = [];
     this._buffer = null;
 
@@ -38,11 +38,15 @@ class Request {
   }
 
   get message() {
-    if (!this._payload) {
-      this._payload = JSON.parse(this.buffer.toString());
+    if (!this._body) {
+      try {
+        this._body = JSON.parse(this.buffer.toString());
+      } catch (e) {
+        this._body = this.buffer.toString();
+      }
     }
 
-    return this._payload;
+    return this._body;
   }
 
   get buffer() {

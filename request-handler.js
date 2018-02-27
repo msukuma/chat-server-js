@@ -9,6 +9,7 @@ const {
   WEBSOCKET, } = require('./constants');
 const Request = require('./request');
 const httpHeaders = require('http-headers');
+const Frame = require('./frame');
 
 class RequestHandler {
   constructor(server, options = {}) {
@@ -18,12 +19,12 @@ class RequestHandler {
 
   handle(socket) {
 
-    socket.on(DATA, (data) => {
+    socket.on(DATA, (buf) => {
       let req;
       let headers;
-      let str = data.toString().trim();
+      let str = buf.toString().trim();
 
-      if (this._isHandShake(data, str)) {
+      if (this._isHandShake(buf, str)) {
         req = new Request(socket);
         this.requests.set(socket, req);
 
@@ -42,14 +43,7 @@ class RequestHandler {
           this.requests.set(socket, req);
         }
 
-        try {
-          if (this._checkFrame(req, data)) {
-            this._server.emit(MESSAGE, null, req);
-          }
-        } catch (e) {
-          this._server.emit(MESSAGE, e, req);
-        }
-
+        this._handleFrame(req, new Frame(buf));
       }
 
     });
@@ -57,7 +51,7 @@ class RequestHandler {
 
   _isHandShake(socket, str) {
     // make wrapper func for connections.has on server?
-    return !this._server.connections.has(socket) && HANDSHAKE_REGEX.test(str);
+    return !this._server.__connections.has(socket) && HANDSHAKE_REGEX.test(str);
   }
 
   _parseHeaders(req, str) {
@@ -69,39 +63,24 @@ class RequestHandler {
     req.headers = headers.headers;
   }
 
-  _checkFrame(req, buf) {
-    const FIN = buf[0] & 128;
+  _handleFrame(req, frame) { //use frame obj
+    console.log(frame);
+    try {
+      if (!frame.mask)
+        throw new Error('Mask not set');
 
-    // ignore exts 4 now;
-    // const RSV1 = buf[0] & 64;
-    // const RSV2 = buf[0] & 32;
-    // const RSV3 = buf[0] & 16;
-    const OPCODE = buf[0] & 15;
-    const MASK = buf[1] & 128;
-    const length = buf[1] & 127;
-    let maskingKey;
-    let encoded;
-    let payload;
-
-    if (!MASK) throw new Error('Mask not set');
-    maskingKey = buf.slice(2, 6); // look @ https://github.com/broofa/node-int64
-    encoded = buf.slice(6);
-    payload = Buffer.allocUnsafe(encoded.length);
-
-    for (var i = 0; i < encoded.length; i++) {
-      payload[i] = encoded[i] ^ maskingKey[i % 4];
+      switch (frame.opcode) {
+        case 0x1:
+        case 0x0:
+          req.push(frame.payload);
+          break;
+      }
+    } catch (e) {
+      this._server.emit(MESSAGE, e, req);
     }
 
-    switch (OPCODE) {
-      case 0x1:
-      case 0x0:
-        req.push(payload);
-        break;
-      default:
-
-    }
-
-    if (FIN) return true; // use EventEmitter?
+    if (frame.fin)
+      this._server.emit(MESSAGE, null, req);
   }
 }
 

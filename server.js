@@ -16,22 +16,22 @@ const {
   GOOD_HANDSHAKE_RESPONSE_SUFFIX,
   GUID,
 } = require('./constants');
-const { inherit } = require('./util');
 const Logger = require('./logger');
 const Connections = require('./connections');
 const Sessions = require('./sessions');
 const Messages = require('./messages');
 const httpHeaders = require('http-headers');
 const RequestHandler = require('./request-handler');
+const Frame = require('./frame');
 const net = require('net');
 const crypto = require('crypto');
 
-class ChatServer {
+class ChatServer extends net.Server {
   constructor(cl, options = {}) {
-    inherit(this, net.createServer(cl, options));
+    super(options, cl);
     this.id = options.id || Date.now();
     this.log = Logger();
-    this.connections = new Connections(this.log);
+    this.__connections = new Connections(this.log);
     this.sessions = new Sessions(this.log);
     this.messages = new Messages(this);
     this.requestHandler = new RequestHandler(this);
@@ -72,7 +72,7 @@ class ChatServer {
         this.log.error({
           source: 'socket',
           socketId: socket.id,
-          content: err.message,
+          error: err.stack,
         });
       });
 
@@ -125,10 +125,12 @@ class ChatServer {
   _onMessage() {
     this.on(MESSAGE, (err, req) => {
       if (err)
-        return this.messages.error(req.socket, err.message);
+        return this.messages.error(req.socket, err);
 
-      this.messages.receive(req.socket, req.message);
-      this.messages.broadcast(req.socket, req.message);
+      const frame = new Frame({ payload: req.buffer });
+      req.socket.write(frame.buffer);
+      // this.messages.receive(req.socket, req.message);
+      // this.messages.broadcast(req.socket, req.message);
     });
   }
 
@@ -140,7 +142,7 @@ class ChatServer {
       type: BAD_REQUEST,
       socketId: socket.id,
       address: socket.address(),
-      error: err.message,
+      error: err.stack,
     });
 
     this._endConnection(socket);
@@ -152,7 +154,7 @@ class ChatServer {
     this._acceptHash(req) +
     GOOD_HANDSHAKE_RESPONSE_SUFFIX;
 
-    req.socket.write(resp, () => this.connections.add(req.socket));
+    req.socket.write(resp, () => this.__connections.add(req.socket));
   }
 
   _acceptHash(req) {
@@ -165,7 +167,7 @@ class ChatServer {
 
   _endConnection(socket) {
     this.sessions.end(socket);
-    this.connections.end(socket);
+    this.__connections.end(socket);
   }
 }
 

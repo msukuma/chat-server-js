@@ -77,18 +77,15 @@ class Messages {
   }
 
   info(socket, message) {
-    this._serverMessage(socket, INFO, message)
-        .resolve();
+    return this._serverMessage(socket, INFO, message);
   }
 
   warn(socket, message) {
-    this._serverMessage(socket, WARNING, message)
-        .resolve();
+    return this._serverMessage(socket, WARNING, message);
   }
 
   error(socket, message) {
-    this._serverMessage(socket, ERROR, message)
-        .resolve();
+    return this._serverMessage(socket, ERROR, message);
   }
 }
 
