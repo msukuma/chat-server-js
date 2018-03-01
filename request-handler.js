@@ -1,7 +1,12 @@
 const {
   DATA,
   GET,
+  SESSION,
   MESSAGE,
+  COMPLETE,
+  WS_CLOSE,
+  PING,
+  PONG,
   HANDSHAKE,
   HANDSHAKE_REGEX,
   HTTP_VERSION_REGEX,
@@ -10,11 +15,43 @@ const {
 const Request = require('./request');
 const httpHeaders = require('http-headers');
 const Frame = require('./frame');
+const { EventEmitter } = require('events');
+const { HandshakeError } = require('./errors');
 
-class RequestHandler {
+class RequestHandler extends EventEmitter {
   constructor(server, options = {}) {
+    super();
     this._server = server;
     this.requests = new Map();
+
+    this._onSession();
+    this._onMessage();
+    this._onCompletion();
+  }
+
+  _onSession() {
+    this.on(SESSION, (err, req) => {
+      if (err)
+        return this._server.emit(SESSION, err);
+
+      this._server.emit(SESSION, null, req);
+    });
+  }
+
+  _onMessage() {
+    this.on(MESSAGE, (err, req) => {
+      if (err)
+        return this._server.emit(MESSAGE, err);
+
+      if (req.message.type === SESSION)
+        return this.emit(SESSION, null, req);
+
+      this._server.emit(MESSAGE, null, req);
+    });
+  }
+
+  _onCompletion() {
+    this.on(COMPLETE, req => this.requests.put(req.socket, null));
   }
 
   handle(socket) {
@@ -69,18 +106,33 @@ class RequestHandler {
       if (!frame.mask)
         throw new Error('Mask not set');
 
-      switch (frame.opcode) {
-        case 0x1:
-        case 0x0:
-          req.push(frame.payload);
-          break;
-      }
+      req.push(frame.payload);
     } catch (e) {
       this._server.emit(MESSAGE, e, req);
     }
 
-    if (frame.fin)
-      this._server.emit(MESSAGE, null, req);
+    if (frame.fin) {
+      switch (frame.opcode) {
+        case 0x8: //close frame
+          return this._server.emit(WS_CLOSE, req); // TODO implement
+        case 0x9:
+          return this._server.emit(PING, req); // TODO implement
+        case 0xA:
+          return this._server.emit(PONG, req); // TODO implement
+      }
+
+      if (frame.opcode === 0x1) {
+        try {
+
+        } catch (e) {
+
+        } finally {
+
+        }
+      }
+    }
+
+    this.emit(MESSAGE, null, req);
   }
 }
 

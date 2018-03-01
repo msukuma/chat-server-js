@@ -25,9 +25,9 @@ class Connections {
     return this._connections.has(socket);
   }
 
-  end(socket) {
-    this._connections.delete(socket);
+  end(socket, reason) {
     socket.destroy();
+    this._connections.delete(socket);
     this._log(socket, END);
   }
 

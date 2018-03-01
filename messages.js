@@ -1,11 +1,14 @@
 const {
+  SERVER,
   ERROR,
   WARNING,
   INFO,
   MESSAGE,
   STATUS,
+  DELIVERED,
   MESSAGE_KEYS, } = require('./constants');
 const { isoTimeStamp } = require('./util');
+const Frame = require('./frame');
 const assert = require('assert');
 
 class Messages {
@@ -18,10 +21,12 @@ class Messages {
     MESSAGE_KEYS.forEach(k => assert(data.hasOwnProperty(k)));
   }
 
-  _write(socket, data) {
+  _write(socket, string) {
     const _this = this;
+    const frame = new Frame({ payload: string });
+
     return new Promise(function (resolve, reject) {
-      socket.write(JSON.stringify(data), () => {
+      socket.write(frame.buffer, () => {
           _this._log.message(data);
           resolve();
         });
@@ -29,11 +34,12 @@ class Messages {
   }
 
   _serverMessage(socket, type, message) {
-    return this._write(socket, {
+    return this._write(socket, JSON.stringify({
       type: type,
+      from: SERVER,
       content: message,
       timestamp: isoTimeStamp(),
-    });
+    }));
   }
 
   valid(data) {
@@ -45,35 +51,36 @@ class Messages {
     }
   }
 
-  broadcast(fromSkt, message) {
+  broadcast(req) {
     this._server.sessions.forEach((toSkt, userId) => {
-      if (fromSkt.id !== toSkt.id) {
-        message.to = toSkt.userId;
+      if (req.socket.id !== toSkt.id) {
+        req.message.to = toSkt.userId;
 
-        this.deliver(toSkt, message)
-            .then(this.confirmDelivery(fromSkt, message));
+        this.deliver(toSkt, req.message)
+            .then(this.confirmDelivery(req));
       }
     });
   }
 
-  receive(socket, message) {
-    message.id = Date.now();
+  receive(req) {
+    req.message.id = Date.now();
     let msg = {
       status: 'received',
-      content: message,
+      content: req.message,
     };
-    return this._serverMessage(socket, STATUS, msg);
+    return this._serverMessage(req.socket, STATUS, msg);
   }
 
   deliver(toSkt, message) {
     return this._serverMessage(toSkt, MESSAGE, message);
   }
 
-  confirmDelivery(fromSkt, message) {
+  confirmDelivery(req) {
     let msg = {
-      status: 'delivered',
-      messageId: message.id, };
-    return this._serverMessage(fromSkt, STATUS, msg);
+      status: DELIVERED,
+      messageId: req.message.id,
+    };
+    return this._serverMessage(req.socket, STATUS, msg);
   }
 
   info(socket, message) {

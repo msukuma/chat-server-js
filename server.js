@@ -16,6 +16,7 @@ const {
   GOOD_HANDSHAKE_RESPONSE_SUFFIX,
   GUID,
 } = require('./constants');
+const { HandshakeError } = require('./errors');
 const Logger = require('./logger');
 const Connections = require('./connections');
 const Sessions = require('./sessions');
@@ -116,9 +117,19 @@ class ChatServer extends net.Server {
   _onHandShake() {
     this.on(HANDSHAKE, (err, req) => {
       if (err)
-        return this._badRequest(req.socket, err);
+        return this._badRequest(req, err);
 
-      this._acceptConnection(req);
+      this._completeHandeShake(req);
+    });
+  }
+
+  _onSession() {
+    this.on(SESSION, (err, req) => {
+      if (err)
+        return this._badRequest(req, err);
+
+      if (this.sessions.exists(req.socket))
+        return this._badRequest(req, new Error('Session Exists'));
     });
   }
 
@@ -127,32 +138,39 @@ class ChatServer extends net.Server {
       if (err)
         return this.messages.error(req.socket, err);
 
-      const frame = new Frame({ payload: req.buffer });
-      req.socket.write(frame.buffer);
-      // this.messages.receive(req.socket, req.message);
-      // this.messages.broadcast(req.socket, req.message);
+      console.log(frame);
+      this.messages.receive(req);
+      this.messages.broadcast(req);
     });
   }
 
-  _badRequest(socket, err) {
-    // move this to connections?
-    socket.write(BAD_HANDSHAKE_RESPONSE);
-
-    this.log.connection({
+  _badRequest(socket, err) { // move this to connections?
+    const badReq = {
       type: BAD_REQUEST,
       socketId: socket.id,
       address: socket.address(),
-      error: err.stack,
-    });
+      error: err,
+    };
 
-    this._endConnection(socket);
+    if (err instanceof HandshakeError) {
+      socket.write(BAD_HANDSHAKE_RESPONSE);
+    } else {
+      socket.write(new Frame({
+        payload: JSON.stringify(badReq),
+        opcode: 8,
+      }), () => {
+        this.log.connection(badReq);
+        this._endConnection(socket);
+      });
+    }
+
   }
 
-  _acceptConnection(req) {
+  _completeHandeShake(req) {
     // move this to connections?
     const resp = GOOD_HANDSHAKE_RESPONSE_PREFIX +
-    this._acceptHash(req) +
-    GOOD_HANDSHAKE_RESPONSE_SUFFIX;
+                 this._acceptHash(req) +
+                 GOOD_HANDSHAKE_RESPONSE_SUFFIX;
 
     req.socket.write(resp, () => this.__connections.add(req.socket));
   }
