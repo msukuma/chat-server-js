@@ -1,9 +1,11 @@
 const {
   DATA,
   GET,
-  SESSION,
   MESSAGE,
+  MESSAGE_KEYS,
   COMPLETE,
+  FRAME_ERROR,
+  TEXT,
   WS_CLOSE,
   PING,
   PONG,
@@ -22,36 +24,13 @@ class RequestHandler extends EventEmitter {
   constructor(server, options = {}) {
     super();
     this._server = server;
-    this.requests = new Map();
+    this.requests = this._server.requests;
 
-    this._onSession();
-    this._onMessage();
-    this._onCompletion();
+    this._onComplete();
   }
 
-  _onSession() {
-    this.on(SESSION, (err, req) => {
-      if (err)
-        return this._server.emit(SESSION, err);
-
-      this._server.emit(SESSION, null, req);
-    });
-  }
-
-  _onMessage() {
-    this.on(MESSAGE, (err, req) => {
-      if (err)
-        return this._server.emit(MESSAGE, err);
-
-      if (req.message.type === SESSION)
-        return this.emit(SESSION, null, req);
-
-      this._server.emit(MESSAGE, null, req);
-    });
-  }
-
-  _onCompletion() {
-    this.on(COMPLETE, req => this.requests.put(req.socket, null));
+  _onComplete() { // move this server?
+    this.on(COMPLETE, req => this.requests.update(req.socket, null));
   }
 
   handle(socket) {
@@ -61,15 +40,15 @@ class RequestHandler extends EventEmitter {
       let headers;
       let str = buf.toString().trim();
 
-      if (this._isHandShake(buf, str)) {
+      if (this._isHandShake(socket, str)) {
         req = new Request(socket);
-        this.requests.set(socket, req);
 
         try {
           this._parseHeaders(req, str);
+          this._validateHeaders(req);
           this._server.emit(HANDSHAKE, null, req);
         } catch (e) {
-          this._server.emit(HANDSHAKE, e);
+          this._server.emit(HANDSHAKE, e, req);
         }
 
       } else {
@@ -80,15 +59,14 @@ class RequestHandler extends EventEmitter {
           this.requests.set(socket, req);
         }
 
-        this._handleFrame(req, new Frame(buf));
+        this._handleFrame(new Frame(buf), req);
       }
-
     });
   }
 
   _isHandShake(socket, str) {
     // make wrapper func for connections.has on server?
-    return !this._server.__connections.has(socket) && HANDSHAKE_REGEX.test(str);
+    return !this.requests.exists(socket) && HANDSHAKE_REGEX.test(str);
   }
 
   _parseHeaders(req, str) {
@@ -100,39 +78,48 @@ class RequestHandler extends EventEmitter {
     req.headers = headers.headers;
   }
 
-  _handleFrame(req, frame) { //use frame obj
+  _validateHeaders(req) {
+    return true;
+  }
+
+  _validateFrame(frame) {
+    if (!frame.mask)
+      throw new Error('Mask not set');
+  }
+
+  _validateMessage(msg) {
+    MESSAGE_KEYS.forEach(k => assert(msg.hasOwnProperty(k)));
+  }
+
+  _handleFrame(frame, req) { //use frame obj
     console.log(frame);
     try {
-      if (!frame.mask)
-        throw new Error('Mask not set');
-
-      req.push(frame.payload);
+      this._validateFrame(frame);
     } catch (e) {
-      this._server.emit(MESSAGE, e, req);
+      return this._server.emit(MESSAGE, e);
     }
 
+    req.push(frame.payload);
+
     if (frame.fin) {
+      if (frame.opcode === TEXT) {
+        try {
+          this._validateMessage(req.message);
+          return this._server.emit(MESSAGE, null, req);
+        } catch (e) {
+          this._server.emit(MESSAGE, e, req);
+        }
+      }
+
       switch (frame.opcode) {
         case 0x8: //close frame
-          return this._server.emit(WS_CLOSE, req); // TODO implement
+          req.type = CLOSE;
         case 0x9:
           return this._server.emit(PING, req); // TODO implement
         case 0xA:
           return this._server.emit(PONG, req); // TODO implement
       }
-
-      if (frame.opcode === 0x1) {
-        try {
-
-        } catch (e) {
-
-        } finally {
-
-        }
-      }
     }
-
-    this.emit(MESSAGE, null, req);
   }
 }
 

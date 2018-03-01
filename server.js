@@ -18,13 +18,13 @@ const {
 } = require('./constants');
 const { HandshakeError } = require('./errors');
 const Logger = require('./logger');
-const Connections = require('./connections');
 const Sessions = require('./sessions');
 const Messages = require('./messages');
 const httpHeaders = require('http-headers');
 const RequestHandler = require('./request-handler');
 const Frame = require('./frame');
 const net = require('net');
+const url = require('url');
 const crypto = require('crypto');
 
 class ChatServer extends net.Server {
@@ -32,15 +32,15 @@ class ChatServer extends net.Server {
     super(options, cl);
     this.id = options.id || Date.now();
     this.log = Logger();
-    this.__connections = new Connections(this.log);
     this.sessions = new Sessions(this.log);
+    this.requests = this.sessions;
     this.messages = new Messages(this);
     this.requestHandler = new RequestHandler(this);
 
     this._init();
   }
 
-  _init() {
+  _init() { //eventually all this will move out;
     this._onListening();
     this._onConnection();
     this._onError();
@@ -83,25 +83,12 @@ class ChatServer extends net.Server {
     });
   }
 
-  _handleSession(socket, data) {
-    this.sessions.add(socket, data.userId);
-  }
-
-  _handleMessage(socket, message) {
-    if (this.messages.valid(message)) {
-      this.messages
-        .receive(socket, message)
-        .then(this.messages.broadcast(socket, message));
-    } else {
-      this.messages.error(socket, 'InvalidFormat');
-    }
-  }
-
   _onError() {
     this.on(ERROR, err => {
       this.log.error({
+        source: 'server',
         serverId: this.id,
-        content: err.message,
+        error: err.stack,
       });
     });
   }
@@ -117,19 +104,14 @@ class ChatServer extends net.Server {
   _onHandShake() {
     this.on(HANDSHAKE, (err, req) => {
       if (err)
-        return this._badRequest(req, err);
+        return req.socket.end(BAD_HANDSHAKE_RESPONSE);
 
-      this._completeHandeShake(req);
-    });
-  }
+      const userId = url.parse(req.url).pathname.split('/')[1];
+      const resp = GOOD_HANDSHAKE_RESPONSE_PREFIX +
+                   this._acceptHash(req) +
+                   GOOD_HANDSHAKE_RESPONSE_SUFFIX;
 
-  _onSession() {
-    this.on(SESSION, (err, req) => {
-      if (err)
-        return this._badRequest(req, err);
-
-      if (this.sessions.exists(req.socket))
-        return this._badRequest(req, new Error('Session Exists'));
+      req.socket.write(resp, () => this.sessions.add(req, userId));
     });
   }
 
@@ -138,41 +120,9 @@ class ChatServer extends net.Server {
       if (err)
         return this.messages.error(req.socket, err);
 
-      console.log(frame);
       this.messages.receive(req);
       this.messages.broadcast(req);
     });
-  }
-
-  _badRequest(socket, err) { // move this to connections?
-    const badReq = {
-      type: BAD_REQUEST,
-      socketId: socket.id,
-      address: socket.address(),
-      error: err,
-    };
-
-    if (err instanceof HandshakeError) {
-      socket.write(BAD_HANDSHAKE_RESPONSE);
-    } else {
-      socket.write(new Frame({
-        payload: JSON.stringify(badReq),
-        opcode: 8,
-      }), () => {
-        this.log.connection(badReq);
-        this._endConnection(socket);
-      });
-    }
-
-  }
-
-  _completeHandeShake(req) {
-    // move this to connections?
-    const resp = GOOD_HANDSHAKE_RESPONSE_PREFIX +
-                 this._acceptHash(req) +
-                 GOOD_HANDSHAKE_RESPONSE_SUFFIX;
-
-    req.socket.write(resp, () => this.__connections.add(req.socket));
   }
 
   _acceptHash(req) {
@@ -183,9 +133,9 @@ class ChatServer extends net.Server {
       .digest('base64');
   }
 
-  _endConnection(socket) {
+  _endConnection(socket, reason) {
     this.sessions.end(socket);
-    this.__connections.end(socket);
+    socket.destroy();
   }
 }
 

@@ -17,17 +17,13 @@ class Messages {
     this._log = server.log;
   }
 
-  _validate(data) {
-    MESSAGE_KEYS.forEach(k => assert(data.hasOwnProperty(k)));
-  }
-
-  _write(socket, string) {
+  _write(socket, msg) {
     const _this = this;
-    const frame = new Frame({ payload: string });
+    const frame = new Frame({ payload: msg });
 
     return new Promise(function (resolve, reject) {
       socket.write(frame.buffer, () => {
-          _this._log.message(data);
+          _this._log.message(msg);
           resolve();
         });
     });

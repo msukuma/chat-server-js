@@ -17,17 +17,27 @@ class Sessions {
   }
 
   exists(socket) {
-    return this.sessions.has(socket.userId);
+    return this.sessions.has(socket);
   }
 
-  add(socket, userId) {
-    socket.userId = userId;
-    this.sessions.set(userId, socket);
-    this._log(socket, ADD);
+  get(socket) {
+    return this.sessions.get(socket);
+  }
+
+  add(req, userId) {
+    req.socket.userId = userId;
+    this.sessions.set(req.socket, req);
+    this._log(req.socket, ADD);
+  }
+
+  update(socket, req) {
+    if (!this.exists(socket))
+      throw new Error('Socket is not in session');
+    this.sessions.set(socket, req);
   }
 
   end(socket) {
-    this.sessions.delete(socket.userId);
+    this.sessions.delete(socket);
     this._log(socket, END);
   }
 
