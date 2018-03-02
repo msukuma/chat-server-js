@@ -13,14 +13,15 @@ const Frame = require('./frame');
 class ResponseHandler {
   constructor(server, options = {}) {
     this._server = server;
+    this.sessions = this._server.sessions.keys;
     this._log = server.log;
   }
 
   _write(socket, msg) {
     const _this = this;
     const frame = new Frame({ payload: msg });
-    console.log('sending', frame);
-
+    // console.log('sending msg', msg);
+    // console.log('sending decoded', frame.payload.toString());
     return new Promise(function (resolve, reject) {
       socket.write(frame.buffer, () => {
           _this._log.message(msg);
@@ -49,10 +50,10 @@ class ResponseHandler {
 
   broadcast(req, cb) {
     let i = 0;
-    const startSize = this.sessions.size;
+    const startSize = this._server.sessions.size;
     const promises = [];
 
-    this._server.sessions.forEach((toSkt, userId) => {
+    this._server.sessions.forEach((_, toSkt) => {
       req.message.to = toSkt.userId;
 
       if (i < startSize) {

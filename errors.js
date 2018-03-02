@@ -10,7 +10,7 @@ class MessageError extends Error {
   constructor(key) {
     super();
     this.name = 'MessageError';
-    this.message = `message.${key}`;
+    this.message = `missing or invalid key: message.${key}`;
   }
 }
 

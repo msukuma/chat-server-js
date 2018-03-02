@@ -73,7 +73,7 @@ class RequestHandler extends EventEmitter {
   }
 
   _handleFrame(frame, req) { //use frame obj
-    console.log('received', frame);
+
     try {
       this._validateFrame(frame);
     } catch (e) {

@@ -125,14 +125,13 @@ class ChatServer extends net.Server {
 
   _onMessage() {
     this.on(MESSAGE, (err, req) => {
-      console.log('MESSAGE');
+      console.log('MESSAGE', err);
       if (err)
         return this.responder.error(req.socket, err)
                     .then(() => this.requestHandler.complete(req));
 
       this.responder
-          .broadcast(req)
-          .then(() => this.requestHandler.complete(req));
+          .broadcast(req, () => this.requestHandler.complete(req));
     });
   }
 
