@@ -4,7 +4,6 @@ const {
   MESSAGE,
   MESSAGE_KEYS,
   COMPLETE,
-  FRAME_ERROR,
   TEXT,
   WS_CLOSE,
   PING,
@@ -14,11 +13,15 @@ const {
   HTTP_VERSION_REGEX,
   UPGRADE,
   WEBSOCKET, } = require('./constants');
+const {
+  HandshakeError,
+  MessageError,
+  FrameError, } = require('./errors');
+const { EventEmitter } = require('events');
 const Request = require('./request');
 const httpHeaders = require('http-headers');
 const Frame = require('./frame');
-const { EventEmitter } = require('events');
-const { HandshakeError } = require('./errors');
+const assert = require('assert');
 
 class RequestHandler extends EventEmitter {
   constructor(server, options = {}) {
@@ -40,23 +43,30 @@ class RequestHandler extends EventEmitter {
       let headers;
       let str = buf.toString().trim();
 
-      if (this._isHandShake(socket, str)) {
+      if (this._isNewHandShake(socket, str)) {
         req = new Request(socket);
 
         try {
-          this._parseHeaders(req, str);
-          this._validateHeaders(req);
+          headers = httpHeaders(str);
+          this._validateHeaders(headers);
+          this._setHeaders(req, headers);
           this._server.emit(HANDSHAKE, null, req);
         } catch (e) {
+          console.log(e);
           this._server.emit(HANDSHAKE, e, req);
         }
 
+      } else if (this._isHandShake(str)) {
+        this._server.emit(
+          HANDSHAKE,
+          new HandshakeError('handshake already complete')
+        );
       } else {
         req = this.requests.get(socket);
 
         if (!req) {
           req = new Request(socket);
-          this.requests.set(socket, req);
+          this.requests.update(socket, req);
         }
 
         this._handleFrame(new Frame(buf), req);
@@ -64,39 +74,13 @@ class RequestHandler extends EventEmitter {
     });
   }
 
-  _isHandShake(socket, str) {
-    // make wrapper func for connections.has on server?
-    return !this.requests.exists(socket) && HANDSHAKE_REGEX.test(str);
-  }
-
-  _parseHeaders(req, str) {
-    const headers  = httpHeaders(str);
-    req.method = headers.method;
-    req.url = headers.url;
-    req.httpVersion = parseFloat(
-      `${headers.version.major}.${headers.version.minor}`);
-    req.headers = headers.headers;
-  }
-
-  _validateHeaders(req) {
-    return true;
-  }
-
-  _validateFrame(frame) {
-    if (!frame.mask)
-      throw new Error('Mask not set');
-  }
-
-  _validateMessage(msg) {
-    MESSAGE_KEYS.forEach(k => assert(msg.hasOwnProperty(k)));
-  }
-
   _handleFrame(frame, req) { //use frame obj
     console.log(frame);
     try {
       this._validateFrame(frame);
     } catch (e) {
-      return this._server.emit(MESSAGE, e);
+      console.log(e);
+      return this._server.emit(MESSAGE, e, req);
     }
 
     req.push(frame.payload);
@@ -111,15 +95,42 @@ class RequestHandler extends EventEmitter {
         }
       }
 
-      switch (frame.opcode) {
-        case 0x8: //close frame
-          req.type = CLOSE;
-        case 0x9:
-          return this._server.emit(PING, req); // TODO implement
-        case 0xA:
-          return this._server.emit(PONG, req); // TODO implement
-      }
+      this._server.emit(frame.opcode, req);
     }
+  }
+
+  _isNewHandShake(socket, str) {
+    return !this.requests.exists(socket) &&
+            this._isHandShake(str);
+  }
+
+  _isHandShake(str) {
+    return HANDSHAKE_REGEX.test(str);
+  }
+
+  _setHeaders(req, headers) {
+    req.method = headers.method;
+    req.url = headers.url;
+    req.httpVersion = parseFloat(
+      `${headers.version.major}.${headers.version.minor}`);
+    req.headers = headers.headers;
+  }
+
+  _validateHeaders(headers) {
+    // throw HandshakeError
+    return true;
+  }
+
+  _validateFrame(frame) {
+    if (!frame.mask)
+      throw new FrameError('Mask not set');
+  }
+
+  _validateMessage(msg) {
+    MESSAGE_KEYS.forEach(k => {
+      if (!msg.hasOwnProperty(k))
+        throw new MessageError(k);
+    });
   }
 }
 

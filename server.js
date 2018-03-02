@@ -10,6 +10,9 @@ const {
   CLOSE,
   SESSION,
   BAD_REQUEST,
+  WS_CLOSE,
+  PING,
+  PONG,
   HANDSHAKE,
   BAD_HANDSHAKE_RESPONSE,
   GOOD_HANDSHAKE_RESPONSE_PREFIX,
@@ -19,7 +22,7 @@ const {
 const { HandshakeError } = require('./errors');
 const Logger = require('./logger');
 const Sessions = require('./sessions');
-const Messages = require('./messages');
+const ResponseHandler = require('./response-handler');
 const httpHeaders = require('http-headers');
 const RequestHandler = require('./request-handler');
 const Frame = require('./frame');
@@ -48,6 +51,9 @@ class ChatServer extends net.Server {
 
     this._onHandShake();
     this._onMessage();
+    this._onWsClose();
+    this._onPING();
+    this._onPONG();
   }
 
   _onListening() {
@@ -117,12 +123,25 @@ class ChatServer extends net.Server {
 
   _onMessage() {
     this.on(MESSAGE, (err, req) => {
+      console.log('MESSAGE');
       if (err)
         return this.messages.error(req.socket, err);
 
       this.messages.receive(req);
       this.messages.broadcast(req);
     });
+  }
+
+  _onWsClose() {
+    this.on(WS_CLOSE, () => console.log('WS_CLOSE'));
+  }
+
+  _onPING() {
+    this.on(PING, () => console.log('PING'));
+  }
+
+  _onPONG() {
+    this.on(PONG, () => console.log('PONG'));
   }
 
   _acceptHash(req) {

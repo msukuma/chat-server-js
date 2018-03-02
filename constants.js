@@ -1,7 +1,6 @@
 const constants = {
   SERVER: 'server',
   ERROR: 'error',
-  FRAME_ERROR: 'frameError',
   TIMEOUT: 'timeout',
   DATA: 'data',
   LISTENING: 'listening',
