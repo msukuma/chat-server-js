@@ -37,7 +37,6 @@ class Frame {
       fin2OpcBuf[1] = 126;
       msk2pllBuf = Buffer.allocUnsafe(2);
       msk2pllBuf.writeUInt16BE(payloadLength, 0);
-      buffs.push(msk2pllBuf);
     } else if (payloadLength <= 125) {
       fin2OpcBuf[1] = payloadLength;
     }
