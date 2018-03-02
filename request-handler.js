@@ -28,12 +28,6 @@ class RequestHandler extends EventEmitter {
     super();
     this._server = server;
     this.requests = this._server.requests;
-
-    this._onComplete();
-  }
-
-  _onComplete() { // move this server?
-    this.on(COMPLETE, req => this.requests.update(req.socket, null));
   }
 
   handle(socket) {
@@ -74,8 +68,12 @@ class RequestHandler extends EventEmitter {
     });
   }
 
+  complete(req) {
+    this.requests.update(req.socket, null);
+  }
+
   _handleFrame(frame, req) { //use frame obj
-    console.log(frame);
+    console.log('received', frame);
     try {
       this._validateFrame(frame);
     } catch (e) {

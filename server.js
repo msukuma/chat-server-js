@@ -13,6 +13,7 @@ const {
   WS_CLOSE,
   PING,
   PONG,
+  COMPLETE,
   HANDSHAKE,
   BAD_HANDSHAKE_RESPONSE,
   GOOD_HANDSHAKE_RESPONSE_PREFIX,
@@ -37,7 +38,7 @@ class ChatServer extends net.Server {
     this.log = Logger();
     this.sessions = new Sessions(this.log);
     this.requests = this.sessions;
-    this.messages = new Messages(this);
+    this.responder = new ResponseHandler(this);
     this.requestHandler = new RequestHandler(this);
 
     this._init();
@@ -54,6 +55,7 @@ class ChatServer extends net.Server {
     this._onWsClose();
     this._onPING();
     this._onPONG();
+    // this._onComplete();
   }
 
   _onListening() {
@@ -107,12 +109,12 @@ class ChatServer extends net.Server {
     });
   }
 
-  _onHandShake() {
+  _onHandShake() { // use ResponseHandler
     this.on(HANDSHAKE, (err, req) => {
       if (err)
         return req.socket.end(BAD_HANDSHAKE_RESPONSE);
 
-      const userId = url.parse(req.url).pathname.split('/')[1];
+      const userId = url.parse(req.url).pathname.split('/')[2];
       const resp = GOOD_HANDSHAKE_RESPONSE_PREFIX +
                    this._acceptHash(req) +
                    GOOD_HANDSHAKE_RESPONSE_SUFFIX;
@@ -125,27 +127,32 @@ class ChatServer extends net.Server {
     this.on(MESSAGE, (err, req) => {
       console.log('MESSAGE');
       if (err)
-        return this.messages.error(req.socket, err);
+        return this.responder.error(req.socket, err)
+                    .then(() => this.requestHandler.complete(req));
 
-      this.messages.receive(req);
-      this.messages.broadcast(req);
+      this.responder
+          .broadcast(req)
+          .then(() => this.requestHandler.complete(req));
     });
   }
 
   _onWsClose() {
-    this.on(WS_CLOSE, () => console.log('WS_CLOSE'));
+    this.on(WS_CLOSE, (req) => this.sessions.end(req.socket));
   }
 
   _onPING() {
-    this.on(PING, () => console.log('PING'));
+    this.on(PING, (req) => this.repsonder.pong(req));
   }
 
   _onPONG() {
-    this.on(PONG, () => console.log('PONG'));
+    this.on(PONG, (req) => this.repsonder.ping(req));
   }
 
+  // _onComplete() {
+  //   this.on(COMPLETE, (req) => this.requestHandler.complete(req));
+  // }
+
   _acceptHash(req) {
-    // move this to connections?
     return crypto
       .createHash('sha1')
       .update(req.secWSKey + GUID)

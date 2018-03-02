@@ -9,9 +9,8 @@ const {
   MESSAGE_KEYS, } = require('./constants');
 const { isoTimeStamp } = require('./util');
 const Frame = require('./frame');
-const assert = require('assert');
 
-class Messages {
+class ResponseHandler {
   constructor(server, options = {}) {
     this._server = server;
     this._log = server.log;
@@ -20,6 +19,7 @@ class Messages {
   _write(socket, msg) {
     const _this = this;
     const frame = new Frame({ payload: msg });
+    console.log('sending', frame);
 
     return new Promise(function (resolve, reject) {
       socket.write(frame.buffer, () => {
@@ -47,37 +47,48 @@ class Messages {
     }
   }
 
-  broadcast(req) {
-    this._server.sessions.forEach((toSkt, userId) => {
-      if (req.socket.id !== toSkt.id) {
-        req.message.to = toSkt.userId;
+  broadcast(req, cb) {
+    let i = 0;
+    const startSize = this.sessions.size;
+    const promises = [];
 
-        this.deliver(toSkt, req.message)
-            .then(this.confirmDelivery(req));
+    this._server.sessions.forEach((toSkt, userId) => {
+      req.message.to = toSkt.userId;
+
+      if (i < startSize) {
+        promises[i++] = this.deliver(toSkt, req.message);
+      } else {
+        promises.push(this.deliver(toSkt, req.message));
       }
     });
+
+    Promise.all(promises).then(cb);
   }
 
-  receive(req) {
-    req.message.id = Date.now();
-    let msg = {
-      status: 'received',
-      content: req.message,
-    };
-    return this._serverMessage(req.socket, STATUS, msg);
-  }
+  deliver(toSkt, message, cb) {
+    if (cb)
+      return this._serverMessage(toSkt, MESSAGE, message)
+                  .then(cb);
 
-  deliver(toSkt, message) {
     return this._serverMessage(toSkt, MESSAGE, message);
   }
 
-  confirmDelivery(req) {
-    let msg = {
-      status: DELIVERED,
-      messageId: req.message.id,
-    };
-    return this._serverMessage(req.socket, STATUS, msg);
-  }
+  // receive(req) {
+  //   req.message.id = Date.now();
+  //   let msg = {
+  //     status: 'received',
+  //     content: req.message,
+  //   };
+  //   return this._serverMessage(req.socket, STATUS, msg);
+  // }
+
+  // confirmDelivery(req) {
+  //   let msg = {
+  //     status: DELIVERED,
+  //     messageId: req.message.id,
+  //   };
+  //   return this._serverMessage(req.socket, STATUS, msg);
+  // }
 
   info(socket, message) {
     return this._serverMessage(socket, INFO, message);
@@ -87,9 +98,17 @@ class Messages {
     return this._serverMessage(socket, WARNING, message);
   }
 
-  error(socket, message) {
-    return this._serverMessage(socket, ERROR, message);
+  error(socket, err) {
+    return this._serverMessage(socket, ERROR, err);
+  }
+
+  ping(req) {
+    console.log('implement');
+  }
+
+  pong(req) {
+    console.log('implement');
   }
 }
 
-module.exports = Messages;
+module.exports = ResponseHandler;
