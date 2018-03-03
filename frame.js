@@ -12,12 +12,12 @@ const { Int64BE } = require('int64-buffer');
 
 class Frame {
   constructor(buf) { // frame as a buffer or a plain object with properties
-    this.buffer = buf instanceof Buffer ? buf : this._init(buf);
+    this._buffer = buf instanceof Buffer ? buf : this._init(buf);
 
-    this.fin = this.buffer[0] & FIN_AND;
-    this.opcode = this.buffer[0] & OPCODE_AND;
-    this.mask = this.buffer[1] & MASK_AND;
-    this.payloadLength = this.buffer[1] & PAYLOAD_LENGTH_AND;
+    this.fin = this._buffer[0] & FIN_AND;
+    this.opcode = this._buffer[0] & OPCODE_AND;
+    this.mask = this._buffer[1] & MASK_AND;
+    this.payloadLength = this._buffer[1] & PAYLOAD_LENGTH_AND;
   }
 
   _init({ payload, fin = FIN_AND, opcode = 1 }) {// frame from server
@@ -54,7 +54,7 @@ class Frame {
       return this._maskingKey;
 
     if (this.mask) {
-      this._maskingKey = this.buffer.slice(
+      this._maskingKey = this._buffer.slice(
         this.maskingKeyOffSet,
         this.maskingKeyOffSet + MASKING_KEY_LENGTH
       );
@@ -102,7 +102,7 @@ class Frame {
     if (this._payload)
       return this._payload;
 
-    this._payload = this.buffer.slice(this.payloadOffset);
+    this._payload = this._buffer.slice(this.payloadOffset);
 
     if (this.mask) {
       for (let i = 0; i < this._payload.length; i++) {
@@ -111,6 +111,10 @@ class Frame {
     }
 
     return this._payload;
+  }
+
+  toBuffer() {
+    return this._buffer;
   }
 }
 
