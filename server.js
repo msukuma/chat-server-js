@@ -140,11 +140,11 @@ class ChatServer extends net.Server {
   }
 
   _onPING() {
-    this.on(PING, (req) => this.repsonder.pong(req));
+    this.on(PING, (req) => this.responder.pong(req));
   }
 
   _onPONG() {
-    this.on(PONG, (req) => this.repsonder.ping(req));
+    this.on(PONG, (req) => this.responder.ping(req));
   }
 
   // _onComplete() {
