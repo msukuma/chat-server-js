@@ -9,12 +9,11 @@ const  logLevels =  {
   error: 0,
   warn: 1,
   timeout: 2,
-  connection: 3,
-  session: 4,
-  message: 5,
-  info: 6,
-  verbose: 7,
-  debug: 8,
+  session: 3,
+  message: 4,
+  info: 5,
+  verbose: 6,
+  debug: 7,
 };
 
 module.exports = function Logger() {

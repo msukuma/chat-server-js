@@ -39,7 +39,7 @@ class RequestHandler extends EventEmitter {
 
       if (this._isNewHandShake(socket, str)) {
         req = new Request(socket);
-
+        console.log(str);
         try {
           headers = httpHeaders(str);
           this._validateHeaders(headers);
@@ -73,7 +73,7 @@ class RequestHandler extends EventEmitter {
   }
 
   _handleFrame(frame, req) { //use frame obj
-
+    frame.payloadLength;
     try {
       this._validateFrame(frame);
     } catch (e) {

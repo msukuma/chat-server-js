@@ -20,8 +20,7 @@ class ResponseHandler {
   _write(socket, msg) {
     const _this = this;
     const frame = new Frame({ payload: msg });
-    // console.log('sending msg', msg);
-    // console.log('sending decoded', frame.payload.toString());
+
     return new Promise(function (resolve, reject) {
       socket.write(frame.toBuffer(), () => {
           _this._log.message(msg);
