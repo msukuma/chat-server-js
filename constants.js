@@ -23,7 +23,7 @@ const constants = {
   OPCODE_AND: 15,
   MASK_AND: 128,
   PAYLOAD_LENGTH_AND: 127,
-  MAX_PAYLOAD_LENGTH: 125,
+  MAX_PAYLOAD_LENGTH: 5242880, //5mb
   MASKING_KEY_LENGTH: 4,
   TEXT: 1,
   WS_CLOSE: 8,
@@ -37,6 +37,7 @@ const constants = {
    'Upgrade: websocket\r\n' +
    'Connection: Upgrade\r\n' +
    'Sec-WebSocket-Protocol: chat\r\n' +
+   'Sec-WebSocket-Version: 13\r\n' +
    'Sec-WebSocket-Accept: ',
   GOOD_HANDSHAKE_RESPONSE_SUFFIX: '\r\n\r\n',
   HTTP_VERSION_REGEX: /HTTP\/\d/,
