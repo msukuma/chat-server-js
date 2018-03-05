@@ -4,7 +4,8 @@
   "description": "TCP chat server",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node_modules/mocha/bin/mocha"
   },
   "repository": {
     "type": "git",
@@ -29,6 +30,6 @@
     "winston": "^3.0.0-rc1"
   },
   "devDependencies": {
-    "faker": "^4.1.0"
+    "mocha": "^5.0.1"
   }
 }

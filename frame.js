@@ -19,22 +19,28 @@ class Frame {
 
   _init({ payload, fin = FIN_AND, opcode = 1, mask = 0 }) {// frame from server
     let extPll2msk;
-    const fin2pllBuf = Buffer.alloc(2);
+    const fin2pllBuf = Buffer.alloc(2, 0);
     const payloadBuf = payload instanceof Buffer ? payload : Buffer.from(payload);
     const buffs = [];
     const payloadLength = Buffer.byteLength(payload);
 
-    fin2pllBuf[0] = fin | opcode; // fin2opc
+    if (fin)
+      fin2pllBuf[0] = 0x80;
+
+    fin2pllBuf[0] |= opcode; // fin2opc
+
+    if (mask)
+      fin2pllBuf[1] = 0x80;
 
     if (payloadLength > 65535) {
-      fin2pllBuf[1] = 127; //msk2pll
+      fin2pllBuf[1] |= 127; //msk2pll
       extPll2msk = new Uint64BE(payloadLength).toBuffer();
     } else if (payloadLength > 125) {
-      fin2pllBuf[1] = 126; //msk2pll
+      fin2pllBuf[1] |= 126; //msk2pll
       extPll2msk = Buffer.alloc(2);
       extPll2msk.writeUInt16BE(payloadLength, 0);
     } else {
-      fin2pllBuf[1] = payloadLength; //msk2pll
+      fin2pllBuf[1] |= payloadLength; //msk2pll
     }
 
     buffs.push(fin2pllBuf);
