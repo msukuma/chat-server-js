@@ -8,6 +8,9 @@ const {
   WS_CLOSE,
   PING,
   PONG,
+  CONTINUATION,
+  TIMEOUT,
+  REQUEST_TIMEOUT,
   HANDSHAKE,
   HANDSHAKE_REGEX,
   HTTP_VERSION_REGEX,
@@ -17,6 +20,7 @@ const {
   HandshakeError,
   MessageError,
   FrameError, } = require('./errors');
+const { byteSize } = require('./util');
 const { EventEmitter } = require('events');
 const Request = require('./request');
 const httpHeaders = require('http-headers');
@@ -34,6 +38,7 @@ class RequestHandler extends EventEmitter {
 
     socket.on(DATA, (buf) => {
       let req;
+      let frame;
       let headers;
       let str = buf.toString().trim();
 
@@ -61,9 +66,70 @@ class RequestHandler extends EventEmitter {
         if (!req) {
           req = new Request(socket);
           this.requests.update(socket, req);
+          // this._monitor(req);
+        }
+        // cases
+        // 1 - Req is one frame and tcp does not split
+        // 2 - req is one frame and tcp splits
+        // *
+        // 3 - req in fragmented and tcp does not split any of them
+        // * if is first frame
+        // * else
+        //
+
+        // 4 - req in fragmented and tcp splits one or more
+        // 5 - req is never completed by client, debounce lol * handled
+
+        console.log(req._frames);
+        if (req.isNewRequest()) {
+          frame = new Frame(buf);
+          req.addFrame(frame);
+        } else {
+          frame = req.lastFrame;
+
+          if (frame.isComplete()) {
+            frame = new Frame(buf);
+            req.addFrame(frame);
+          } else {
+            frame.concat(buf);
+            if (byteSize(frame.payload) > frame.payloadLength) {
+              return this._server.emit(
+                MESSAGE,
+                new FrameError('Frame payload size bigger than expected'),
+                req
+              );
+            }
+          }
         }
 
-        this._handleFrame(new Frame(buf), req);
+        // how node handles large tcp payloads differs from the websocket Protocol
+        // so a client might send a single frame but the server might recieve/process
+        // it as multiple chunks. so we have to check;
+        if (frame.isComplete()) {
+          console.log('==========here========================================');
+          try { // check frame
+            // console.log(frame.payload.toString());
+            this._validateFrame(frame);
+          } catch (e) {
+            console.log(e);
+            return this._server.emit(MESSAGE, e, req);
+          }
+
+          // check frame done
+
+          if (frame.fin) {
+            if (frame.opcode === TEXT) {
+              try {
+                this._validateMessage(req.message);
+                return this._server.emit(MESSAGE, null, req);
+              } catch (e) {
+                return this._server.emit(MESSAGE, e, req);
+              }
+            } else if (frame.opcode !== CONTINUATION) {
+              return this._server.emit(frame.opcode, req);
+            }
+          }
+        }
       }
     });
   }
@@ -73,7 +139,6 @@ class RequestHandler extends EventEmitter {
   }
 
   _handleFrame(frame, req) { //use frame obj
-    frame.payloadLength;
     try {
       this._validateFrame(frame);
     } catch (e) {
@@ -81,9 +146,9 @@ class RequestHandler extends EventEmitter {
       return this._server.emit(MESSAGE, e, req);
     }
 
-    req.push(frame.payload);
-
-    if (frame.fin) {
+    console.log('req.isFramingDone()', req.isFramingDone());
+    console.log('frame.fin', frame.fin);
+    if (req.isFramingDone() && frame.fin) {
       if (frame.opcode === TEXT) {
         try {
           this._validateMessage(req.message);
@@ -95,6 +160,14 @@ class RequestHandler extends EventEmitter {
 
       this._server.emit(frame.opcode, req);
     }
+  }
+
+  _monitor(req) {
+    setTimeout(() => {
+      if (this.requests.exists(req.socket) && this.requests.get(socket) === req) {
+        this._server.emit(TIMEOUT);
+      }
+    }, REQUEST_TIMEOUT);
   }
 
   _isNewHandShake(socket, str) {

@@ -9,20 +9,22 @@ const {
   MAX_PAYLOAD_LENGTH,
   MASKING_KEY_LENGTH,
 } = require('./constants');
+const { byteSize } = require('./util');
 const { Uint64BE } = require('int64-buffer');
 
 class Frame {
   constructor(buf) { // frame as a buffer or a plain object with properties
     this._buffer = buf instanceof Buffer ? buf : this._init(buf);
     this._iLen = this._buffer[1] & PAYLOAD_LENGTH_AND;
+    this._unmasked = false;
   }
 
   _init({ payload, fin = FIN_AND, opcode = 1, mask = 0 }) {// frame from server
     let extPll2msk;
-    const fin2pllBuf = Buffer.alloc(2, 0);
+    const fin2pllBuf = Buffer.alloc(2);
     const payloadBuf = payload instanceof Buffer ? payload : Buffer.from(payload);
     const buffs = [];
-    const payloadLength = Buffer.byteLength(payload);
+    const payloadLength = byteSize(payload);
 
     if (fin)
       fin2pllBuf[0] = 0x80;
@@ -157,22 +159,33 @@ class Frame {
   }
 
   get payload() {
-    if (this._payload)
-      return this._payload;
+    // if (this._payload)
+    //   return this._payload;
 
     this._payload = this._buffer.slice(this.payloadOffset);
 
     if (this.mask) {
-      for (let i = 0; i < this._payload.length; i++) {
-        this._payload[i] = this._payload[i] ^ this.maskingKey[i % 4];
-      }
+      this._unmask(this._payload);
+      this._unmasked = true;
     }
 
     return this._payload;
   }
 
+  isComplete() {
+    return this.payloadLength === byteSize(this.payload);
+  }
+
   toBuffer() {
     return this._buffer;
+  }
+
+  concat(buf) { // when tcp data is split
+    // if (this.mask && this._unmasked)
+    //   this._unmask(buf);
+
+    this._buffer =  Buffer.concat([this._buffer, buf]);
+    // this._payload = this._buffer.slice(this.payloadOffset);
   }
 
   toString() {
@@ -184,6 +197,12 @@ class Frame {
       payloadLength: ${this.payloadLength},
       payloadAsString: ${this.payload.toString('utf8')}
     }`;
+  }
+
+  _unmask(buf) {
+    for (let i = 0; i < buf.length; i++) {
+      buf[i] = buf[i] ^ this.maskingKey[i % 4];
+    }
   }
 }
 

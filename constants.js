@@ -1,6 +1,7 @@
 const constants = {
   SERVER: 'server',
   ERROR: 'error',
+  SOCKET_TIMEOUT: 180000,
   TIMEOUT: 'timeout',
   DATA: 'data',
   LISTENING: 'listening',
@@ -16,19 +17,19 @@ const constants = {
   ADD: 'add',
   END: 'end',
   GET: 'GET',
-  FIN_AND: 128,
-  RSV1_AND: 64,
-  RSV2_AND: 32,
-  RSV3_AND: 16,
-  OPCODE_AND: 15,
-  MASK_AND: 128,
-  PAYLOAD_LENGTH_AND: 127,
+  FIN_AND: 0x80,
+  RSV1_AND: 0x40,
+  RSV2_AND: 0x20,
+  RSV3_AND: 0x10,
+  OPCODE_AND: 0xf,
+  PAYLOAD_LENGTH_AND: 0x7f,
   MAX_PAYLOAD_LENGTH: 5242880, //5mb
   MASKING_KEY_LENGTH: 4,
-  TEXT: 1,
-  WS_CLOSE: 8,
-  PING: 9,
-  PONG: 10,
+  TEXT: 0x1,
+  CONTINUATION: 0x0,
+  WS_CLOSE: 0x8,
+  PING: 0x9,
+  PONG: 0xa,
   HANDSHAKE: 'handshake',
   HANDSHAKE_REGEX: /^GET/,
   BAD_REQUEST: 'Bad Request',
@@ -50,6 +51,8 @@ const constants = {
   PORT: 56150,
 };
 
+constants.MASK_AND = constants.FIN_AND;
+constants.REQUEST_TIMEOUT = constants.SOCKET_TIMEOUT / 18;
 constants.MESSAGE_KEYS = [
   'type',
   'content',

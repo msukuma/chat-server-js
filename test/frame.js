@@ -17,13 +17,6 @@ function getPayload(size = 128) {
   return buf;
 }
 
-// function defaultTest(frame, size) {
-//   assert(frame.fin === 1);
-//   assert(frame.opcode === 1);
-//   assert(frame.mask === 0);
-//   assert(frame.payloadLength === size);
-// }
-
 function testWith(fin = 1, opcode = 1, mask = 0) {
 
   [64, 128, 65536].forEach(size => {

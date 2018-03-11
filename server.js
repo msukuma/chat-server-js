@@ -2,6 +2,7 @@ const {
   MESSAGE,
   ERROR,
   TIMEOUT,
+  SOCKET_TIMEOUT,
   END,
   DATA,
   GET,
@@ -70,7 +71,7 @@ class ChatServer extends net.Server {
     this.on(CONNECTION, socket => {
       this.requestHandler.handle(socket);
 
-      socket.setTimeout(180000);
+      socket.setTimeout(SOCKET_TIMEOUT);
 
       socket.on(TIMEOUT, () => {
         this.log.timeout({ socketId: socket.id });

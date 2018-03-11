@@ -8,7 +8,7 @@ class Request {
     this.socket = socket;
 
     this._body = null;
-    this._chunks = [];
+    this._frames = [];
     this._buffer = null;
 
     this.headers = {};
@@ -50,14 +50,34 @@ class Request {
   }
 
   get buffer() {
-    if (!this._buffer)
-      this._buffer = Buffer.concat(this._chunks);
+    if (!this._buffer) {
+      this._buffer = Buffer.concat(this._frames.map(frame => frame.payload));
+    }
 
     return this._buffer;
   }
 
-  push(data) {
-    this._chunks.push(data);
+  get lastFrame() {
+    return this._frames[this._frames.length - 1];
+  }
+
+  addFrame(frame) {
+    this._frames.push(frame);
+  }
+
+  concatToLastFrame(buf) {
+    this.lastFrame.concat(buf);
+  }
+
+  isNewRequest() {
+    return this._frames.length === 0;
+  }
+
+  isFramingDone() {
+    if (this.isNewRequest())
+      return false;
+
+    return this.lastFrame.isComplete();
   }
 }
 
