@@ -1,4 +1,5 @@
 const constants = {
+  SOCKET: 'socket',
   STRING: 'string',
   SERVER: 'server',
   ERROR: 'error',

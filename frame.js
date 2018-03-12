@@ -62,12 +62,49 @@ class Frame {
     return this._fin;
   }
 
+  set fin(val) {
+    if (this._fin !== val) {
+      if (val === 0) {
+        this._buffer[0] = 0x7f & this._buffer[0];
+        this._fin = 0;
+      } else {
+        this._buffer[0] = FIN_AND | this._buffer[0];
+        this._fin = 1;
+      }
+    }
+
+  }
+
   get opcode () {
     return this._opcode;
   }
 
+  set opcode(val) {
+    if (this._opcode !== val) {
+      if (val === 0) {
+        this._buffer[0] = this._buffer[0] & 0xfe;
+        this._opcode = 0;
+      } else {
+        this._buffer[0] = this._buffer[0] | 0x01;
+        this._opcode = 1;
+      }
+    }
+  }
+
   get mask () {
     return this._mask;
+  }
+
+  set mask(val) {
+    if (this._mask !== val) {
+      if (val === 0) {
+        this._buffer[1] = 0x7f & this._buffer[0];
+        this._mask = 0;
+      } else {
+        this._buffer[1] = MASK_AND | this._buffer[0];
+        this._mask = 1;
+      }
+    }
   }
 
   get maskingKey() {
