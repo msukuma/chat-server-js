@@ -14,12 +14,15 @@ const { Uint64BE } = require('int64-buffer');
 
 class Frame {
   constructor(buf) { // frame as a buffer or a plain object with properties
-    this._buffer = buf instanceof Buffer ? buf : this._init(buf);
+    this._buffer = buf instanceof Buffer ? buf : this._initBuffer(buf);
+    this._fin = this._buffer[0] & FIN_AND ? 1 : 0;
+    this._opcode = this._buffer[0] & OPCODE_AND;
+    this._mask = this._buffer[1] & MASK_AND ? 1 : 0;
     this._iLen = this._buffer[1] & PAYLOAD_LENGTH_AND;
-    this._unmasked = false;
+    this._variablePayloadLength = this.variablePayloadLength;
   }
 
-  _init({ payload, fin = FIN_AND, opcode = 1, mask = 0 }) {// frame from server
+  _initBuffer({ payload, fin = FIN_AND, opcode = 1, mask = 0 }) {// frame from server
     let extPll2msk;
     const fin2pllBuf = Buffer.alloc(2);
     const payloadBuf = payload instanceof Buffer ? payload : Buffer.from(payload);
@@ -56,26 +59,14 @@ class Frame {
   }
 
   get fin () {
-    if (this._fin)
-      return this._fin;
-
-    this._fin = this._buffer[0] & FIN_AND ? 1 : 0;
     return this._fin;
   }
 
   get opcode () {
-    if (this._opcode)
-      return this._opcode;
-
-    this._opcode = this._buffer[0] & OPCODE_AND;
     return this._opcode;
   }
 
   get mask () {
-    if (this._mask)
-      return this._mask;
-
-    this._mask = this._buffer[1] & MASK_AND ? 1 : 0;
     return this._mask;
   }
 
@@ -145,6 +136,10 @@ class Frame {
     return this._payloadLengthByteSize;
   }
 
+  get variablePayloadLength() {
+    return this._buffer.length - this.payloadOffset;
+  }
+
   get payloadOffset() {
     if (this._payloadOffset)
       return this._payloadOffset;
@@ -159,33 +154,41 @@ class Frame {
   }
 
   get payload() {
-    // if (this._payload)
-    //   return this._payload;
+    if (this._payload && this._payload.length === this.variablePayloadLength) {
+      console.log('lengths equal');
+      return this._payload;
+    } else {
+      console.log('NOT lengths equal');
+      this._payload = this._buffer.slice(this.payloadOffset);
 
-    this._payload = this._buffer.slice(this.payloadOffset);
+      if (this.mask) {
+        for (let i = 0; i < this._payload.length; i++) {
+          this._payload[i] = this._payload[i] ^ this.maskingKey[i % 4];
+        }
+      }
 
-    if (this.mask) {
-      this._unmask(this._payload);
-      this._unmasked = true;
+      return this._payload;
     }
-
-    return this._payload;
   }
 
   isComplete() {
-    return this.payloadLength === byteSize(this.payload);
+    console.log(this);
+    return this.variablePayloadLength === this.payloadLength;
+  }
+
+  concat(buf) { // when frame data is split
+    console.log('============concated==================');
+    this._buffer =  Buffer.concat(
+      [this._buffer, buf],
+      this._buffer.length + buf.length
+    );
+
+    this._variablePayloadLength += buf.length;
+    console.log(this);
   }
 
   toBuffer() {
     return this._buffer;
-  }
-
-  concat(buf) { // when tcp data is split
-    // if (this.mask && this._unmasked)
-    //   this._unmask(buf);
-
-    this._buffer =  Buffer.concat([this._buffer, buf]);
-    // this._payload = this._buffer.slice(this.payloadOffset);
   }
 
   toString() {
@@ -197,12 +200,6 @@ class Frame {
       payloadLength: ${this.payloadLength},
       payloadAsString: ${this.payload.toString('utf8')}
     }`;
-  }
-
-  _unmask(buf) {
-    for (let i = 0; i < buf.length; i++) {
-      buf[i] = buf[i] ^ this.maskingKey[i % 4];
-    }
   }
 }
 

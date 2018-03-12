@@ -148,10 +148,6 @@ class ChatServer extends net.Server {
     this.on(PONG, (req) => this.responder.ping(req));
   }
 
-  // _onComplete() {
-  //   this.on(COMPLETE, (req) => this.requestHandler.complete(req));
-  // }
-
   _acceptHash(req) {
     return crypto
       .createHash('sha1')

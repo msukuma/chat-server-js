@@ -1,4 +1,5 @@
 const constants = {
+  STRING: 'string',
   SERVER: 'server',
   ERROR: 'error',
   SOCKET_TIMEOUT: 180000,
@@ -53,11 +54,11 @@ const constants = {
 
 constants.MASK_AND = constants.FIN_AND;
 constants.REQUEST_TIMEOUT = constants.SOCKET_TIMEOUT / 18;
-constants.MESSAGE_KEYS = [
-  'type',
-  'content',
-  'from',
-  'timestamp',
-];
+constants.MESSAGE_PROP_TYPES = {
+  type: constants.STRING,
+  content: constants.STRING,
+  from: 'number',
+  timestamp: constants.STRING,
+};
 
 module.exports = constants;

@@ -6,7 +6,7 @@ const {
   MESSAGE,
   STATUS,
   DELIVERED,
-  MESSAGE_KEYS, } = require('./constants');
+  MESSAGE_PROP_TYPES, } = require('./constants');
 const { isoTimeStamp } = require('./util');
 const Frame = require('./frame');
 

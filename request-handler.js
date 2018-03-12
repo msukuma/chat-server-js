@@ -2,7 +2,7 @@ const {
   DATA,
   GET,
   MESSAGE,
-  MESSAGE_KEYS,
+  MESSAGE_PROP_TYPES,
   COMPLETE,
   TEXT,
   WS_CLOSE,
@@ -80,19 +80,21 @@ class RequestHandler extends EventEmitter {
         // 4 - req in fragmented and tcp splits one or more
         // 5 - req is never completed by client, debounce lol * handled
 
-        console.log(req._frames);
+        console.log('req._frames=========', req._frames);
         if (req.isNewRequest()) {
+          console.log('============new reqest new frame=======================');
           frame = new Frame(buf);
           req.addFrame(frame);
         } else {
           frame = req.lastFrame;
 
           if (frame.isComplete()) {
+            console.log('============old request new frame=======================');
             frame = new Frame(buf);
             req.addFrame(frame);
           } else {
             frame.concat(buf);
-            if (byteSize(frame.payload) > frame.payloadLength) {
+            if (frame.variablePayloadLength > frame.payloadLength) {
               return this._server.emit(
                 MESSAGE,
                 new FrameError('Frame payload size bigger than expected'),
@@ -106,7 +108,7 @@ class RequestHandler extends EventEmitter {
         // so a client might send a single frame but the server might recieve/process
         // it as multiple chunks. so we have to check;
         if (frame.isComplete()) {
-          console.log('==========here========================================');
+          console.log('====================frame is complete========================================');
           try { // check frame
             // console.log(frame.payload.toString());
             this._validateFrame(frame);
@@ -118,14 +120,17 @@ class RequestHandler extends EventEmitter {
           // check frame done
 
           if (frame.fin) {
-            if (frame.opcode === TEXT) {
+            console.log('fin frame=========', frame);
+            console.log('fin req.frames=========', req._frames);
+
+            if (frame.opcode === TEXT || frame.opcode === CONTINUATION) {
               try {
                 this._validateMessage(req.message);
                 return this._server.emit(MESSAGE, null, req);
               } catch (e) {
                 return this._server.emit(MESSAGE, e, req);
               }
-            } else if (frame.opcode !== CONTINUATION) {
+            } else {
               return this._server.emit(frame.opcode, req);
             }
           }
@@ -136,30 +141,6 @@ class RequestHandler extends EventEmitter {
 
   complete(req) {
     this.requests.update(req.socket, null);
-  }
-
-  _handleFrame(frame, req) { //use frame obj
-    try {
-      this._validateFrame(frame);
-    } catch (e) {
-      console.log(e);
-      return this._server.emit(MESSAGE, e, req);
-    }
-
-    console.log('req.isFramingDone()', req.isFramingDone());
-    console.log('frame.fin', frame.fin);
-    if (req.isFramingDone() && frame.fin) {
-      if (frame.opcode === TEXT) {
-        try {
-          this._validateMessage(req.message);
-          return this._server.emit(MESSAGE, null, req);
-        } catch (e) {
-          this._server.emit(MESSAGE, e, req);
-        }
-      }
-
-      this._server.emit(frame.opcode, req);
-    }
   }
 
   _monitor(req) {
@@ -198,10 +179,11 @@ class RequestHandler extends EventEmitter {
   }
 
   _validateMessage(msg) {
-    MESSAGE_KEYS.forEach(k => {
-      if (!msg.hasOwnProperty(k))
-        throw new MessageError(k);
-    });
+    Object.entries(MESSAGE_PROP_TYPES)
+          .forEach(([key, type]) => {
+            if (!msg.hasOwnProperty(key) || typeof msg[key] !== type)
+              throw new MessageError(k);
+          });
   }
 }
 
