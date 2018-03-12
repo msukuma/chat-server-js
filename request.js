@@ -57,6 +57,10 @@ class Request {
     return this._buffer;
   }
 
+  get frames() {
+    return this._frames;
+  }
+
   get lastFrame() {
     return this._frames[this._frames.length - 1];
   }
@@ -65,19 +69,8 @@ class Request {
     this._frames.push(frame);
   }
 
-  concatToLastFrame(buf) {
-    this.lastFrame.concat(buf);
-  }
-
   isNewRequest() {
     return this._frames.length === 0;
-  }
-
-  isFramingDone() {
-    if (this.isNewRequest())
-      return false;
-
-    return this.lastFrame.isComplete();
   }
 }
 
