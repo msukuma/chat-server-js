@@ -31,9 +31,8 @@ class Sessions {
   }
 
   update(socket, req) {
-    if (!this.exists(socket))
-      throw new Error('Socket is not in session');
-    this.sessions.set(socket, req);
+    if (this.exists(socket))
+      this.sessions.set(socket, req);
   }
 
   end(socket) {
