@@ -50,8 +50,18 @@ class Request {
   }
 
   get buffer() {
+    let totalLength;
+
     if (!this._buffer) {
-      this._buffer = Buffer.concat(this._frames.map(frame => frame.payload));
+      totalLength = 0;
+
+      this._buffer = Buffer.concat(
+        this._frames.map(frame => {
+          totalLength += frame.payloadLength;
+          return frame.payload;
+        }),
+        totalLength
+      );
     }
 
     return this._buffer;
