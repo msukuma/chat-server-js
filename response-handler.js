@@ -6,9 +6,20 @@ const {
   MESSAGE,
   STATUS,
   DELIVERED,
-  MESSAGE_PROP_TYPES, } = require('./constants');
+  BAD_HANDSHAKE_RESPONSE,
+  GOOD_HANDSHAKE_RESPONSE_PREFIX,
+  GOOD_HANDSHAKE_RESPONSE_SUFFIX,
+  TEXT,
+  CONTINUATION,
+  PING,
+  PONG,
+  MESSAGE_PROP_TYPES,
+  GUID,
+} = require('./constants');
 const { isoTimeStamp } = require('./util');
+const { createReadStream } = require('fs');
 const Frame = require('./frame');
+const crypto = require('crypto');
 
 class ResponseHandler {
   constructor(server, options = {}) {
@@ -17,20 +28,27 @@ class ResponseHandler {
     this._log = server.log;
   }
 
-  _write(socket, msg) {
-    const _this = this;
-    const frame = new Frame({ payload: msg });
+  _write(socket, obj) {
+    const data = obj instanceof Frame ? obj.toBuffer() : obj;
 
-    return new Promise(function (resolve, reject) {
-      socket.write(frame.toBuffer(), () => {
-          _this._log.message(msg);
-          resolve();
-        });
+    return new Promise((resolve, reject) => {
+      socket.write(data, resolve);
     });
   }
 
+  _writeMsg(socket, msg, meta = {}) {
+    const _this = this;
+    let args = meta;
+    let frame;
+
+    args.payload = msg;
+    frame = new Frame(args);
+
+    return this._write(socket, frame);
+  }
+
   _serverMessage(socket, type, message) {
-    return this._write(socket, JSON.stringify({
+    return this._writeMsg(socket, JSON.stringify({
       type: type,
       from: SERVER,
       content: message,
@@ -38,57 +56,57 @@ class ResponseHandler {
     }));
   }
 
-  valid(data) {
-    try {
-      this._validate(data);
-      return true;
-    } catch (e) {
-      return false;
-    }
+  badHandshake(req) {
+    return this._write(req.socket, BAD_HANDSHAKE_RESPONSE);
   }
 
-  broadcast(req, cb) {
-    let i = 0;
-    const startSize = this._server.sessions.size;
+  goodHandshake(req) {
+    const resp = GOOD_HANDSHAKE_RESPONSE_PREFIX +
+                 this._acceptHash(req) +
+                 GOOD_HANDSHAKE_RESPONSE_SUFFIX;
+
+    return this._write(req.socket, resp);
+  }
+
+  broadcast(req) {
     const promises = [];
 
-    this._server.sessions.forEach((_, toSkt) => {
-      req.message.to = toSkt.userId;
+    const frames = this._framify(req);
 
-      if (i < startSize) {
-        promises[i++] = this.deliver(toSkt, req.message);
-      } else {
-        promises.push(this.deliver(toSkt, req.message));
-      }
+    this._server.sessions.forEach((_, toSkt) => {
+      promises.push(this._deliver(toSkt, frames));
     });
 
-    Promise.all(promises).then(cb);
+    return Promise.all(promises);
   }
 
-  deliver(toSkt, message, cb) {
-    if (cb)
-      return this._serverMessage(toSkt, MESSAGE, message)
-                  .then(cb);
+  _framify(req) {
+    let s = 0;
+    let e = 255;
+    const length = req.buffer.length;
+    const frames = [];
 
-    return this._serverMessage(toSkt, MESSAGE, message);
+    while (s < length) {
+      frames.push(new Frame({
+        payload: req.buffer.slice(s, e),
+        fin: 0,
+        opcode: 0,
+      }));
+
+      s = e;
+      e += 255;
+    }
+
+    frames[0].fin = 0;
+    frames[0].opcode = 1;
+    frames[frames.length - 1].fin = 1;
+
+    return frames;
   }
 
-  // receive(req) {
-  //   req.message.id = Date.now();
-  //   let msg = {
-  //     status: 'received',
-  //     content: req.message,
-  //   };
-  //   return this._serverMessage(req.socket, STATUS, msg);
-  // }
-
-  // confirmDelivery(req) {
-  //   let msg = {
-  //     status: DELIVERED,
-  //     messageId: req.message.id,
-  //   };
-  //   return this._serverMessage(req.socket, STATUS, msg);
-  // }
+  _deliver(toSkt, frames) {
+    return Promise.all(frames.map(f => this._write(toSkt, f)));
+  }
 
   info(socket, message) {
     return this._serverMessage(socket, INFO, message);
@@ -103,11 +121,26 @@ class ResponseHandler {
   }
 
   ping(req) {
-    console.log('implement');
+    const frame = new Frame({
+      payload: req.buffer,
+      opcode: PONG,
+    });
+
+    return this._writeMsg(frame.toBuffer());
   }
 
   pong(req) {
-    console.log('implement');
+    return new Promise((resolve, reject) => {
+      console.log('implement pong pas necessaire');
+      resolve();
+    });
+  }
+
+  _acceptHash(req) {
+    return crypto
+      .createHash('sha1')
+      .update(req.secWSKey + GUID)
+      .digest('base64');
   }
 }
 

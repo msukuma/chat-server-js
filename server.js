@@ -1,4 +1,6 @@
 const {
+  SOCKET,
+  SERVER,
   MESSAGE,
   ERROR,
   TIMEOUT,
@@ -16,10 +18,6 @@ const {
   PONG,
   COMPLETE,
   HANDSHAKE,
-  BAD_HANDSHAKE_RESPONSE,
-  GOOD_HANDSHAKE_RESPONSE_PREFIX,
-  GOOD_HANDSHAKE_RESPONSE_SUFFIX,
-  GUID,
 } = require('./constants');
 const { HandshakeError } = require('./errors');
 const Logger = require('./logger');
@@ -28,9 +26,8 @@ const ResponseHandler = require('./response-handler');
 const httpHeaders = require('http-headers');
 const RequestHandler = require('./request-handler');
 const Frame = require('./frame');
-const net = require('net');
 const url = require('url');
-const crypto = require('crypto');
+const net = require('net');
 
 class ChatServer extends net.Server {
   constructor(cl, options = {}) {
@@ -95,7 +92,7 @@ class ChatServer extends net.Server {
   _onError() {
     this.on(ERROR, err => {
       this.log.error({
-        source: 'server',
+        source: SERVER,
         serverId: this.id,
         error: err.stack,
       });
@@ -113,46 +110,82 @@ class ChatServer extends net.Server {
   _onHandShake() { // use ResponseHandler
     this.on(HANDSHAKE, (err, req) => {
       if (err)
-        return req.socket.end(BAD_HANDSHAKE_RESPONSE);
+        this.responder
+            .badHandshake(req)
+            .then(() => req.socket.end());
 
-      const userId = url.parse(req.url).pathname.split('/')[2];
-      const resp = GOOD_HANDSHAKE_RESPONSE_PREFIX +
-                   this._acceptHash(req) +
-                   GOOD_HANDSHAKE_RESPONSE_SUFFIX;
-
-      req.socket.write(resp, () => this.sessions.add(req, userId));
+      this.responder
+          .goodHandshake(req)
+          .then(() => {
+            const userId = url.parse(req.url).pathname.split('/')[2];
+            this.sessions.add(req, userId);
+          });
     });
   }
 
   _onMessage() {
     this.on(MESSAGE, (err, req) => {
-      console.log('MESSAGE', err);
-      if (err)
+      if (err) {
+        console.log('MESSAGE', err);
+        this.log.message({
+          type: ERROR,
+          error: err.stack,
+          source: SOCKET,
+          socketId: req.socket.id,
+          serverId: this.id,
+        });
+
         return this.responder.error(req.socket, err)
-                    .then(() => this.requestHandler.complete(req));
+                   .then(() => this.requestHandler.complete(req));
+
+      }
 
       this.responder
-          .broadcast(req, () => this.requestHandler.complete(req));
+          .broadcast(req)
+          .then(() => {
+            this.requestHandler.complete(req);
+          });
     });
   }
 
   _onWsClose() {
-    this.on(WS_CLOSE, (req) => this.sessions.end(req.socket));
+    this.on(WS_CLOSE, (req) => {
+      this.log.message({
+        type: CLOSE,
+        content: req.message,
+      });
+
+      this.sessions.end(req.socket);
+    });
   }
 
   _onPING() {
-    this.on(PING, (req) => this.responder.pong(req));
+    this.on(PING, (req) => {
+      let ctrlMsg = { type: PING, content: req.message };
+      this.log.message(ctrlMsg);
+
+      this.responder
+          .pong(req)
+          .then(() => {
+            this.requestHandler.complete(req);
+            ctrlMsg.type = PONG;
+            this.log.message(ctrlMsg);
+          });
+    });
   }
 
   _onPONG() {
-    this.on(PONG, (req) => this.responder.ping(req));
-  }
-
-  _acceptHash(req) {
-    return crypto
-      .createHash('sha1')
-      .update(req.secWSKey + GUID)
-      .digest('base64');
+    this.on(PONG, (req) => {
+      this.respoonder
+          .pong(req)
+          .then(() => {
+            this.requestHandler.complete(req);
+            this.log.message({
+              type: PONG,
+              content: req.message,
+            });
+          });
+    });
   }
 
   _endConnection(socket, reason) {
