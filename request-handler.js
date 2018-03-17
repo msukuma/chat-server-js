@@ -40,22 +40,21 @@ class RequestHandler extends EventEmitter {
       let req;
       let frame;
       let headers;
-      let str = buf.toString().trim();
+      let body;
 
-      if (this._isNewHandShake(socket, str)) {
+      if (this._isNewHandShake(socket, buf)) {
         req = new Request(socket);
-        console.log(str);
+        body = buf.toString();
         try {
-          headers = httpHeaders(str);
+          headers = httpHeaders(body);
           this._validateHeaders(headers);
           this._setHeaders(req, headers);
           this._server.emit(HANDSHAKE, null, req);
         } catch (e) {
-          console.log(e);
           this._server.emit(HANDSHAKE, e, req);
         }
 
-      } else if (this._isHandShake(str)) {
+      } else if (this._isHandShake(buf)) {
         this._server.emit(
           HANDSHAKE,
           new HandshakeError('handshake already complete')
@@ -80,16 +79,13 @@ class RequestHandler extends EventEmitter {
         // 4 - req in fragmented and tcp splits one or more
         // 5 - req is never completed by client, debounce lol * handled
 
-        console.log('req._frames=========', req._frames);
         if (req.isNewRequest()) {
-          console.log('============new reqest new frame=======================');
           frame = new Frame(buf);
           req.addFrame(frame);
         } else {
           frame = req.lastFrame;
 
           if (frame.isComplete()) {
-            console.log('============old request new frame=======================');
             frame = new Frame(buf);
             req.addFrame(frame);
           } else {
@@ -108,20 +104,15 @@ class RequestHandler extends EventEmitter {
         // so a client might send a single frame but the server might recieve/process
         // it as multiple chunks. so we have to check;
         if (frame.isComplete()) {
-          console.log('====================frame is complete========================================');
           try { // check frame
-            // console.log(frame.payload.toString());
             this._validateFrame(frame);
           } catch (e) {
-            console.log(e);
             return this._server.emit(MESSAGE, e, req);
           }
 
           // check frame done
 
           if (frame.fin) {
-            console.log('fin frame=========', frame);
-            console.log('fin req.frames=========', req._frames);
 
             if (frame.opcode === TEXT || frame.opcode === CONTINUATION) {
               try {
@@ -151,13 +142,15 @@ class RequestHandler extends EventEmitter {
     }, REQUEST_TIMEOUT);
   }
 
-  _isNewHandShake(socket, str) {
+  _isNewHandShake(socket, buf) {
     return !this.requests.exists(socket) &&
-            this._isHandShake(str);
+            this._isHandShake(buf);
   }
 
-  _isHandShake(str) {
-    return HANDSHAKE_REGEX.test(str);
+  _isHandShake(buf) {
+    return buf[0] === 0x47 &&
+           buf[1] === 0x45 &&
+           buf[2] === 0x54;
   }
 
   _setHeaders(req, headers) {
