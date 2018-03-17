@@ -6,7 +6,6 @@ const {
   OPCODE_AND,
   MASK_AND,
   PAYLOAD_LENGTH_AND,
-  MAX_PAYLOAD_LENGTH,
   MASKING_KEY_LENGTH,
 } = require('./constants');
 const { byteSize } = require('./util');
@@ -65,10 +64,10 @@ class Frame {
   set fin(val) {
     if (this._fin !== val) {
       if (val === 0) {
-        this._buffer[0] = 0x7f & this._buffer[0];
+        this._buffer[0] = this._buffer[0] & 0x7f;
         this._fin = 0;
       } else {
-        this._buffer[0] = FIN_AND | this._buffer[0];
+        this._buffer[0] = this._buffer[0] | FIN_AND;
         this._fin = 1;
       }
     }
@@ -98,10 +97,10 @@ class Frame {
   set mask(val) {
     if (this._mask !== val) {
       if (val === 0) {
-        this._buffer[1] = 0x7f & this._buffer[0];
+        this._buffer[1] = 0x7f & this._buffer[1];
         this._mask = 0;
       } else {
-        this._buffer[1] = MASK_AND | this._buffer[0];
+        this._buffer[1] = MASK_AND | this._buffer[1];
         this._mask = 1;
       }
     }
@@ -192,10 +191,8 @@ class Frame {
 
   get payload() {
     if (this._payload && this._payload.length === this.variablePayloadLength) {
-      console.log('lengths equal');
       return this._payload;
     } else {
-      console.log('NOT lengths equal');
       this._payload = this._buffer.slice(this.payloadOffset);
 
       if (this.mask) {
@@ -209,19 +206,16 @@ class Frame {
   }
 
   isComplete() {
-    console.log(this);
     return this.variablePayloadLength === this.payloadLength;
   }
 
   concat(buf) { // when frame data is split
-    console.log('============concated==================');
     this._buffer =  Buffer.concat(
       [this._buffer, buf],
       this._buffer.length + buf.length
     );
 
     this._variablePayloadLength += buf.length;
-    console.log(this);
   }
 
   toBuffer() {
