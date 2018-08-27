@@ -60,8 +60,7 @@ class Request {
           totalLength += frame.payloadLength;
           return frame.payload;
         }),
-        totalLength
-      );
+        totalLength);
     }
 
     return this._buffer;

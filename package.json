@@ -27,6 +27,7 @@
     "http-headers": "^3.0.2",
     "http-headers-validation": "0.0.1",
     "int64-buffer": "^0.1.10",
+    "websocket-frame": "file:../websocket-frame",
     "winston": "^3.0.0-rc1"
   },
   "devDependencies": {

@@ -18,7 +18,7 @@ const {
 } = require('./constants');
 const { isoTimeStamp } = require('./util');
 const { createReadStream } = require('fs');
-const Frame = require('./frame');
+const Frame = require('websocket-frame');
 const crypto = require('crypto');
 
 class ResponseHandler {
@@ -29,11 +29,9 @@ class ResponseHandler {
   }
 
   _write(socket, obj) {
-    const data = obj instanceof Frame ? obj.toBuffer() : obj;
+    const data = obj instanceof Frame ? obj.buffer : obj;
 
-    return new Promise((resolve, reject) => {
-      socket.write(data, resolve);
-    });
+    return new Promise((resolve, reject) => socket.write(data, resolve));
   }
 
   _writeMsg(socket, msg, meta = {}) {
@@ -70,7 +68,6 @@ class ResponseHandler {
 
   broadcast(req) {
     const promises = [];
-
     const frames = this._framify(req);
 
     this._server.sessions.forEach((_, toSkt) => {
@@ -126,7 +123,7 @@ class ResponseHandler {
       opcode: PONG,
     });
 
-    return this._writeMsg(frame.toBuffer());
+    return this._writeMsg(frame.buffer);
   }
 
   pong(req) {

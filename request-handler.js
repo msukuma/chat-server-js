@@ -24,7 +24,7 @@ const { byteSize } = require('./util');
 const { EventEmitter } = require('events');
 const Request = require('./request');
 const httpHeaders = require('http-headers');
-const Frame = require('./frame');
+const Frame = require('websocket-frame');
 const assert = require('assert');
 
 class RequestHandler extends EventEmitter {
@@ -67,17 +67,6 @@ class RequestHandler extends EventEmitter {
           this.requests.update(socket, req);
           // this._monitor(req);
         }
-        // cases
-        // 1 - Req is one frame and tcp does not split
-        // 2 - req is one frame and tcp splits
-        // *
-        // 3 - req in fragmented and tcp does not split any of them
-        // * if is first frame
-        // * else
-        //
-
-        // 4 - req in fragmented and tcp splits one or more
-        // 5 - req is never completed by client, debounce lol * handled
 
         if (req.isNewRequest()) {
           frame = new Frame(buf);
@@ -100,9 +89,6 @@ class RequestHandler extends EventEmitter {
           }
         }
 
-        // how node handles large tcp payloads differs from the websocket Protocol
-        // so a client might send a single frame but the server might recieve/process
-        // it as multiple chunks. so we have to check;
         if (frame.isComplete()) {
           try { // check frame
             this._validateFrame(frame);
@@ -175,7 +161,7 @@ class RequestHandler extends EventEmitter {
     Object.entries(MESSAGE_PROP_TYPES)
           .forEach(([key, type]) => {
             if (!msg.hasOwnProperty(key) || typeof msg[key] !== type)
-              throw new MessageError(k);
+              throw new MessageError(key);
           });
   }
 }
